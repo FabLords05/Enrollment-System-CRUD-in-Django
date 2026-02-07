@@ -1,5 +1,3 @@
-
-```markdown
 # Student Management System – Django REST Framework
 
 A simple CRUD-based student management system using Django and Django REST Framework.
