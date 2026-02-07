@@ -20,14 +20,25 @@ A simple CRUD-based student management system using Django and Django REST Frame
 * Django REST Framework
 
 ## Screenshots
-
+---
 ![Student View](pic/student.png)
+<img width="1366" height="727" alt="student" src="https://github.com/user-attachments/assets/b9326f78-1d78-4072-b598-67443002c718" />
 
 ![Teacher View](pic/teacher.png)
+<img width="1366" height="727" alt="teacher" src="https://github.com/user-attachments/assets/49d3a39e-e984-4ec9-9ad0-90b7c1358330" />
 
 ![Course View](pic/course.png)
+<img width="1366" height="727" alt="course" src="https://github.com/user-attachments/assets/6c1d729f-550a-4d4d-9bab-2931a49e56fc" />
 
 ![Enrollment View](pic/enrollment.png)
+<img width="1366" height="727" alt="enrollment" src="https://github.com/user-attachments/assets/6bda5bea-5134-47cc-bcbb-05cccd7822b4" />
+
+
+
+
+
+
+
 
 ## How to Run
 
