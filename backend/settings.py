@@ -74,12 +74,26 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
+
+# backend/settings.py
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'CRUD',  # The name you created in phpMyAdmin
+        'USER': 'root',                # Default username is usually 'root'
+        'PASSWORD': '',                # Default password is often empty
+        'HOST': '127.0.0.1',           # Use '127.0.0.1' to avoid socket issues
+        'PORT': '3306',                # Standard MySQL/MariaDB port
     }
 }
+
 
 
 # Password validation
