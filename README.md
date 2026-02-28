@@ -40,6 +40,8 @@ A simple CRUD-based student management system using Django and Django REST Frame
 
 ## How to Run
 
+### Backend (Django)
+
 ```bash
 pip install pymysql
 python -m venv venv
@@ -48,6 +50,31 @@ pip install django djangorestframework
 python manage.py makemigrations
 python manage.py migrate
 python manage.py runserver
-
 ```
+
+### Frontend (React + Tailwind)
+
+Navigate to the `frontend` folder and install dependencies:
+
+```bash
+cd frontend
+npm install
+```
+
+We are using Create React App with Tailwind CSS. Tailwind is already configured via `tailwind.config.js` and `postcss.config.js`.
+
+Start the development server:
+
+```bash
+npm start
+```
+
+The React app will run on port 3000 and proxy API requests to the Django server on port 8000.
+
+```bash
+REACT_APP_API_URL=http://localhost:8000/api
+```
+
+(You can copy `.env.example` to `.env` to set this variable.)
+
 
