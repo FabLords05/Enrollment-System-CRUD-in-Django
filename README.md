@@ -41,6 +41,7 @@ A simple CRUD-based student management system using Django and Django REST Frame
 ## How to Run
 
 ```bash
+pip install pymysql
 python -m venv venv
 source venv/bin/activate
 pip install django djangorestframework
