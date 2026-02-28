@@ -1,5 +1,20 @@
 {
+  "name": "enrollment-system",
+  "version": "1.0.0",
+  "description": "Enrollment System with Django Backend and React Frontend",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"cd backend && python manage.py runserver\" \"cd frontend && npm start\"",
+    "frontend": "cd frontend && npm start",
+    "backend": "cd backend && python manage.py runserver",
+    "frontend:build": "cd frontend && npm run build",
+    "test": "cd frontend && npm test"
+  },
   "dependencies": {
     "axios": "^1.13.6"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "tailwindcss": "^3.3.2"
   }
 }
