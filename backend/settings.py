@@ -12,6 +12,10 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 
+# Install pymysql as MySQLdb
+import pymysql
+pymysql.install_as_MySQLdb()
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -95,11 +99,14 @@ DATABASES = {
 # DATABASES = {
 #     'default': {
 #         'ENGINE': 'django.db.backends.mysql',
-#         'NAME': 'CRUD',  # The name you created in phpMyAdmin
+#         'NAME': 'enrollment',  # The name you created in phpMyAdmin
 #         'USER': 'root',                # Default username is usually 'root'
 #         'PASSWORD': '',                # Default password is often empty
 #         'HOST': '127.0.0.1',           # Use '127.0.0.1' to avoid socket issues
-#         'PORT': '3306',                # Standard MySQL/MariaDB port
+#         'PORT': '3306',
+#         'OPTIONS': {
+#             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+#         },                # Standard MySQL/MariaDB port
 #     }
 # }
 
