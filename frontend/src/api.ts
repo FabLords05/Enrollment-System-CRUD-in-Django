@@ -72,22 +72,43 @@ export interface UpdateCourseRequest {
   teacher?: number;
 }
 
+// ===== Section =====
+export interface Section {
+  id: number;
+  course: number; // FK to Course ID
+  name: string;
+  max_capacity: number;
+  is_full: boolean;
+}
+
+export interface CreateSectionRequest {
+  course: number;
+  name: string;
+  max_capacity: number;
+}
+
+export interface UpdateSectionRequest {
+  course?: number;
+  name?: string;
+  max_capacity?: number;
+}
+
 // ===== Enrollment =====
 export interface Enrollment {
   id: number;
   student: number; // FK to Student ID
-  course: number; // FK to Course ID
-  enrollment_date: string;
+  section: number; // FK to Section ID
+  date_enrolled: string;
 }
 
 export interface CreateEnrollmentRequest {
   student: number;
-  course: number;
+  section: number;
 }
 
 export interface UpdateEnrollmentRequest {
   student?: number;
-  course?: number;
+  section?: number;
 }
 
 // ============= Student API Methods =============
@@ -166,6 +187,32 @@ export const updateCourse = async (id: number, data: UpdateCourseRequest): Promi
 
 export const deleteCourse = async (id: number): Promise<void> => {
   await axiosInstance.delete(`courses/${id}/`);
+};
+
+// ============= Section API Methods =============
+
+export const getSections = async (): Promise<Section[]> => {
+  const response = await axiosInstance.get<Section[]>('sections/');
+  return response.data;
+};
+
+export const getSectionById = async (id: number): Promise<Section> => {
+  const response = await axiosInstance.get<Section>(`sections/${id}/`);
+  return response.data;
+};
+
+export const createSection = async (data: CreateSectionRequest): Promise<Section> => {
+  const response = await axiosInstance.post<Section>('sections/', data);
+  return response.data;
+};
+
+export const updateSection = async (id: number, data: UpdateSectionRequest): Promise<Section> => {
+  const response = await axiosInstance.patch<Section>(`sections/${id}/`, data);
+  return response.data;
+};
+
+export const deleteSection = async (id: number): Promise<void> => {
+  await axiosInstance.delete(`sections/${id}/`);
 };
 
 // ============= Enrollment API Methods =============

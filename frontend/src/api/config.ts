@@ -5,6 +5,7 @@ export const API_ENDPOINTS = {
   enrollments: `${API_BASE_URL}/enrollments/`,
   students: `${API_BASE_URL}/students/`,
   courses: `${API_BASE_URL}/courses/`,
+  sections: `${API_BASE_URL}/sections/`,
 };
 
 export default {

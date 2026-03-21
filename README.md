@@ -43,6 +43,7 @@ A simple CRUD-based student management system using Django and Django REST Frame
 ### Backend (Django)
 
 ```bash
+pip install django-cors-headers
 pip install pymysql
 python -m venv venv
 source venv/bin/activate

@@ -3,6 +3,7 @@ import {
   Enrollment,
   Student,
   Course,
+  Section,
   getEnrollments,
   getEnrollmentById,
   createEnrollment,
@@ -10,6 +11,7 @@ import {
   deleteEnrollment,
   getStudents,
   getCourses,
+  getSections,
   CreateEnrollmentRequest,
   UpdateEnrollmentRequest,
 } from '../api';
@@ -18,11 +20,12 @@ export const EnrollmentList: React.FC = () => {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [sections, setSections] = useState<Section[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedEnrollment, setSelectedEnrollment] = useState<Enrollment | null>(null);
   const [isFormVisible, setIsFormVisible] = useState(false);
-  const [formData, setFormData] = useState<CreateEnrollmentRequest>({
+  const [formData, setFormData] = useState<{ student: number; course: number }>({
     student: 0,
     course: 0,
   });
@@ -61,11 +64,22 @@ export const EnrollmentList: React.FC = () => {
     }
   };
 
-  // Load enrollments, students, and courses on mount
+  // Fetch all sections
+  const fetchSections = async () => {
+    try {
+      const data = await getSections();
+      setSections(data);
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch sections');
+    }
+  };
+
+  // Load data on mount
   useEffect(() => {
     fetchEnrollments();
     fetchStudents();
     fetchCourses();
+    fetchSections();
   }, []);
 
   // Handle form input change
@@ -77,14 +91,49 @@ export const EnrollmentList: React.FC = () => {
     });
   };
 
-  // Handle create enrollment
+  // Handle create enrollment with automatic section assignment
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await createEnrollment(formData);
+      // Find available sections for the selected course
+      const availableSections = sections.filter(section =>
+        section.course === formData.course && !section.is_full
+      );
+
+      if (availableSections.length === 0) {
+        setError('No available sections for this course. All sections are full.');
+        return;
+      }
+
+      // Use the first available section
+      // Check unit limit
+      const selectedCourse = courses.find(c => c.id === formData.course);
+      if (!selectedCourse) {
+        setError('Please choose a valid course.');
+        return;
+      }
+
+      const currentUnits = getStudentTotalUnits(formData.student);
+      const projectedUnits = currentUnits + selectedCourse.units;
+
+      if (projectedUnits > MAX_UNITS) {
+        setError(`Unit limit exceeded: ${projectedUnits} units would exceed maximum ${MAX_UNITS}.`);
+        return;
+      }
+
+      const selectedSection = availableSections[0];
+
+      const enrollmentData: CreateEnrollmentRequest = {
+        student: formData.student,
+        section: selectedSection.id,
+      };
+
+      await createEnrollment(enrollmentData);
       setFormData({ student: 0, course: 0 });
       setIsFormVisible(false);
       fetchEnrollments();
+      fetchSections(); // Refresh sections to update capacity status
+      setError(null);
     } catch (err: any) {
       setError(err.message || 'Failed to create enrollment');
     }
@@ -96,15 +145,46 @@ export const EnrollmentList: React.FC = () => {
     if (!selectedEnrollment) return;
 
     try {
+      // Find available sections for the selected course
+      const availableSections = sections.filter(section =>
+        section.course === formData.course && !section.is_full
+      );
+
+      if (availableSections.length === 0) {
+        setError('No available sections for this course. All sections are full.');
+        return;
+      }
+
+      // Check unit limit before update
+      const studentId = formData.student || selectedEnrollment.student;
+      const selectedCourse = courses.find(c => c.id === formData.course);
+      if (!selectedCourse) {
+        setError('Please choose a valid course.');
+        return;
+      }
+
+      const currentUnits = getStudentTotalUnits(studentId) - (selectedEnrollment ? (courses.find(c => c.id === sections.find(s => s.id === selectedEnrollment.section)?.course)?.units || 0) : 0);
+      const projectedUnits = currentUnits + selectedCourse.units;
+
+      if (projectedUnits > MAX_UNITS) {
+        setError(`Unit limit exceeded: ${projectedUnits} units would exceed maximum ${MAX_UNITS}.`);
+        return;
+      }
+
+      // Use the first available section
+      const selectedSection = availableSections[0];
+
       const updateData: UpdateEnrollmentRequest = {
-        student: formData.student || selectedEnrollment.student,
-        course: formData.course || selectedEnrollment.course,
+        student: studentId,
+        section: selectedSection.id,
       };
       await updateEnrollment(selectedEnrollment.id, updateData);
       setSelectedEnrollment(null);
       setFormData({ student: 0, course: 0 });
       setIsFormVisible(false);
       fetchEnrollments();
+      fetchSections(); // Refresh sections to update capacity status
+      setError(null);
     } catch (err: any) {
       setError(err.message || 'Failed to update enrollment');
     }
@@ -126,10 +206,11 @@ export const EnrollmentList: React.FC = () => {
   const handleEdit = async (id: number) => {
     try {
       const enrollment = await getEnrollmentById(id);
+      const section = sections.find(s => s.id === enrollment.section);
       setSelectedEnrollment(enrollment);
       setFormData({
         student: enrollment.student,
-        course: enrollment.course,
+        course: section?.course || 0,
       });
       setIsFormVisible(true);
     } catch (err: any) {
@@ -144,15 +225,34 @@ export const EnrollmentList: React.FC = () => {
   };
 
   // Get student name by ID
+  const MAX_UNITS = 21;
+
   const getStudentName = (studentId: number) => {
     const student = students.find((s) => s.id === studentId);
     return student ? `${student.first_name} ${student.last_name}` : 'Unknown';
   };
 
-  // Get course name by ID
-  const getCourseName = (courseId: number) => {
-    const course = courses.find((c) => c.id === courseId);
-    return course ? course.course_name : 'Unknown';
+  const getStudentTotalUnits = (studentId: number) => {
+    const data = enrollments
+      .filter((e) => e.student === studentId)
+      .reduce((sum, enrollment) => {
+        const section = sections.find((s) => s.id === enrollment.section);
+        if (!section) return sum;
+        const course = courses.find((c) => c.id === section.course);
+        if (!course) return sum;
+        return sum + course.units;
+      }, 0);
+    return data;
+  };
+
+  // Get section name by ID
+  const getSectionName = (sectionId: number) => {
+    const section = sections.find((s) => s.id === sectionId);
+    if (section) {
+      const course = courses.find((c) => c.id === section.course);
+      return `${course?.course_name || 'Unknown'} - ${section.name}`;
+    }
+    return 'Unknown Section';
   };
 
   // Format date
@@ -234,6 +334,36 @@ export const EnrollmentList: React.FC = () => {
                     </option>
                   ))}
                 </select>
+                {formData.course > 0 && (
+                  <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-800">
+                      <strong>Section Assignment:</strong> {
+                        (() => {
+                          const availableSections = sections.filter(section =>
+                            section.course === formData.course && !section.is_full
+                          );
+                          return availableSections.length > 0
+                            ? `Will be assigned to Section ${availableSections[0].name}`
+                            : 'No available sections - all sections are full';
+                        })()
+                      }
+                    </p>
+                    <p className="text-sm text-blue-800 mt-2">
+                      <strong>Student Units:</strong> {formData.student ? getStudentTotalUnits(formData.student) : 0} / {MAX_UNITS}
+                    </p>
+                    <p className="text-sm text-blue-800">
+                      <strong>After Enrollment:</strong> {
+                        (() => {
+                          const studentUnits = formData.student ? getStudentTotalUnits(formData.student) : 0;
+                          const selectedCourse = courses.find(c => c.id === formData.course);
+                          return selectedCourse
+                            ? `${studentUnits + selectedCourse.units} units`
+                            : 'Select course first';
+                        })()
+                      }
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex gap-3">
@@ -266,7 +396,7 @@ export const EnrollmentList: React.FC = () => {
               <tr>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">ID</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Student</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Course</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Section</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Enrollment Date</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
               </tr>
@@ -276,8 +406,8 @@ export const EnrollmentList: React.FC = () => {
                 <tr key={enrollment.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                   <td className="px-6 py-4 text-sm text-gray-900">{enrollment.id}</td>
                   <td className="px-6 py-4 text-sm text-gray-900">{getStudentName(enrollment.student)}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{getCourseName(enrollment.course)}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{formatDate(enrollment.enrollment_date)}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{getSectionName(enrollment.section)}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{formatDate(enrollment.date_enrolled)}</td>
                   <td className="px-6 py-4 text-sm space-x-2 flex">
                     <button
                       onClick={() => handleEdit(enrollment.id)}
