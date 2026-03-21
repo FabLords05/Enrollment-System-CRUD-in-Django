@@ -262,3 +262,16 @@ axiosInstance.interceptors.response.use(
 );
 
 export default axiosInstance;
+
+export const bulkEnrollStudent = async (studentId: number, sectionIds: number[]) => {
+  try {
+    const response = await axiosInstance.post('/enrollments/bulk_enroll/', {
+      student: studentId,
+      sections: sectionIds
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error during bulk enrollment:", error);
+    throw error;
+  }
+};

@@ -6,8 +6,9 @@ import CourseList from './component/CourseList';
 import SectionList from './component/SectionList';
 import EnrollmentList from './component/EnrollmentList';
 import EnrollmentSummary from './component/EnrollmentSummary';
+import BulkEnrollmentForm from './component/BulkEnrollmentForm';
 
-type Section = 'students' | 'teachers' | 'courses' | 'sections' | 'enrollments' | 'summary';
+type Section = 'students' | 'teachers' | 'courses' | 'sections' | 'enrollments' | 'summary' | 'bulk-enroll';
 
 function App() {
   const [activeSection, setActiveSection] = useState<Section>('students');
@@ -26,6 +27,8 @@ function App() {
         return <EnrollmentList />;
       case 'summary':
         return <EnrollmentSummary />;
+      case 'bulk-enroll':
+        return <BulkEnrollmentForm />;
       default:
         return <StudentList />;
     }
@@ -138,6 +141,22 @@ function App() {
                   <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
                 </svg>
                 Summary
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveSection('bulk-enroll')}
+              className={`flex-1 py-4 px-6 font-semibold text-center transition-all duration-200 border-b-4 ${
+                activeSection === 'bulk-enroll'
+                  ? 'bg-blue-50 text-blue-600 border-blue-600'
+                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              <span className="flex items-center justify-center">
+                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M12 6a1 1 0 110-2 1 1 0 010 2zM9 9a1 1 0 100-2 1 1 0 000 2zM7 13a1 1 0 110-2 1 1 0 010 2zM13 11a1 1 0 100-2 1 1 0 000 2zM15 15a1 1 0 110-2 1 1 0 010 2z" />
+                </svg>
+                Bulk Enroll
               </span>
             </button>
           </nav>
