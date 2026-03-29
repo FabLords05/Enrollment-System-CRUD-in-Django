@@ -15,7 +15,7 @@ class Student(models.Model):
 
     @property
     def total_units(self):
-        # Calculate total enrolled units
+        # Calculate total enrolled units.
         total = self.enrollment_set.aggregate(total=Sum('section__course__units'))['total']
         return total if total is not None else 0
 
@@ -32,7 +32,7 @@ class Teacher(models.Model):
 class Course(models.Model):
     course_name = models.CharField(max_length=255)
     units = models.IntegerField()
-    # Relationship: Each course is taught by one teacher (FK)
+    # Relationship: Each course is taught by one teacher. (FK)
     teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name='courses')
 
     def __str__(self):
@@ -41,7 +41,7 @@ class Course(models.Model):
 class Section(models.Model):
     course = models.ForeignKey('Course', on_delete=models.CASCADE)
     name = models.CharField(max_length=50)
-    max_capacity = models.PositiveIntegerField(default=30) # Section capacity control
+    max_capacity = models.PositiveIntegerField(default=30) # Section capacity control.
 
     def __str__(self):
         return f"{self.course.name} - {self.name}"
@@ -56,11 +56,11 @@ class Enrollment(models.Model):
     date_enrolled = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        # Prevent duplicate enrollment in the exact same section
+        # Prevent duplicate enrollment in the exact same section.
         unique_together = ('student', 'section')
 
     def clean(self):
-        # Prevent duplicate enrollment in the same course across different sections
+        # Prevent duplicate enrollment in the same course across different sections.
         if Enrollment.objects.filter(student=self.student, section__course=self.section.course).exclude(pk=self.pk).exists():
             raise ValidationError("This idiot... I mean, student is already enrolled in this course!")
 
