@@ -239,7 +239,7 @@ Starting development server at http://127.0.0.1:8000/
 **In a new terminal**, navigate to `frontend` directory:
 
 ```bash
-npm start
+npm run start
 ```
 
 Expected output:
