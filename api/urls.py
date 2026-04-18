@@ -10,5 +10,6 @@ router.register(r'sections', SectionViewSet)
 router.register(r'enrollments', EnrollmentViewSet)
 
 urlpatterns = [
+    path('', include('user.urls')),  # Include user authentication URLs
     path('', include(router.urls)),
 ]

@@ -10,3 +10,7 @@ PyMySQL==1.0.2
 
 # Utilities
 python-dotenv==1.0.0
+
+# Authentication
+djoser==2.3.3
+djangorestframework-simplejwt==5.5.1
