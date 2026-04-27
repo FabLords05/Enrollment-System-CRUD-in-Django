@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 import StudentList from './component/StudentList';
 import TeacherList from './component/TeacherList';
@@ -7,11 +7,68 @@ import SectionList from './component/SectionList';
 import EnrollmentList from './component/EnrollmentList';
 import EnrollmentSummary from './component/EnrollmentSummary';
 import BulkEnrollmentForm from './component/BulkEnrollmentForm';
+import Login from './component/Login';
+import Register from './component/Register';
 
 type Section = 'students' | 'teachers' | 'courses' | 'sections' | 'enrollments' | 'summary' | 'bulk-enroll';
 
 function App() {
   const [activeSection, setActiveSection] = useState<Section>('students');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [token, setToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    const storedToken = localStorage.getItem('token');
+    if (storedToken) {
+      setToken(storedToken);
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  const handleLogin = (newToken: string) => {
+    setToken(newToken);
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setToken(null);
+    setIsAuthenticated(false);
+    setAuthMode('login');
+  };
+
+  const handleRegister = () => {
+    setAuthMode('login');
+  };
+
+  if (!isAuthenticated) {
+    return authMode === 'login' ? (
+      <div>
+        <Login onLogin={handleLogin} />
+        <div className="text-center mt-4">
+          <button
+            onClick={() => setAuthMode('register')}
+            className="text-blue-500 hover:text-blue-700"
+          >
+            Don't have an account? Register here
+          </button>
+        </div>
+      </div>
+    ) : (
+      <div>
+        <Register onRegister={handleRegister} />
+        <div className="text-center mt-4">
+          <button
+            onClick={() => setAuthMode('login')}
+            className="text-blue-500 hover:text-blue-700"
+          >
+            Already have an account? Login here
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const renderSection = () => {
     switch (activeSection) {
@@ -39,8 +96,18 @@ function App() {
       {/* Header */}
       <header className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <h1 className="text-4xl font-bold">Enrollment Management System</h1>
-          <p className="text-blue-100 mt-2">Manage Students, Teachers, Courses & Enrollments</p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-4xl font-bold">Enrollment Management System</h1>
+              <p className="text-blue-100 mt-2">Manage Students, Teachers, Courses & Enrollments</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </header>
 

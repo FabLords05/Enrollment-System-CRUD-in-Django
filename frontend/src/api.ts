@@ -10,6 +10,20 @@ export const axiosInstance = axios.create({
   timeout: 10000,
 });
 
+// Add request interceptor to include auth token
+axiosInstance.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `JWT ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 // ============= Type Definitions =============
 
 // ===== Student =====
