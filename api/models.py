@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 class Student(models.Model):   
-    first_name = models.ManyToManyField(User, related_name='students') # Link to User model for authentication.
+    first_name = models.CharField(max_length=255)  # ✅ FIXED
     last_name = models.CharField(max_length=255)
     email = models.CharField(max_length=255)
     age = models.IntegerField()
