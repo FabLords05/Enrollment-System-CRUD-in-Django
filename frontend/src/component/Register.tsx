@@ -2,17 +2,20 @@ import React, { useState } from 'react';
 import axios from 'axios';
 
 interface RegisterProps {
-  onRegister: () => void;
+  onRegister?: () => void;
 }
 
 const Register: React.FC<RegisterProps> = ({ onRegister }) => {
   const [formData, setFormData] = useState({
     email: '',
-    name: '',
+    full_name: '', // CHANGED: 'name' to 'full_name' to match Django model
     password: '',
     re_password: '',
   });
+  
+  // NEW: State for the image file
   const [profilePicture, setProfilePicture] = useState<File | null>(null);
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -24,6 +27,7 @@ const Register: React.FC<RegisterProps> = ({ onRegister }) => {
     });
   };
 
+  // NEW: Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setProfilePicture(e.target.files[0]);
@@ -38,35 +42,48 @@ const Register: React.FC<RegisterProps> = ({ onRegister }) => {
 
     if (formData.password !== formData.re_password) {
       setError('Passwords do not match.');
-      setLoading(false);
+      setTimeout(() => setLoading(false), 500);
       return;
     }
 
     try {
+      /** 
+       * CHANGED: Using FormData instead of JSON to support Image Upload
+       */
       const data = new FormData();
       data.append('email', formData.email);
-      data.append('name', formData.name);
+      data.append('full_name', formData.full_name); // Matches backend field
       data.append('password', formData.password);
       data.append('re_password', formData.re_password);
+      
       if (profilePicture) {
-        data.append('profile_picture', profilePicture);
+        data.append('profile_picture', profilePicture); // Matches backend field
       }
 
-      await axios.post('http://localhost:8000/auth/users/', data, {
+      const response = await axios.post('http://localhost:8000/auth/users/', data, {
         headers: {
-          'Content-Type': 'multipart/form-data',
+          'Content-Type': 'multipart/form-data', // Required for files
         },
       });
 
-      setSuccess('Registration successful! Please check your email to activate your account.');
-      setFormData({ email: '', name: '', password: '', re_password: '' });
-      setProfilePicture(null);
+      if (response.status === 201 || response.status === 200) {
+        setSuccess('Registration successful! Please check your email to activate your account.');
+        setFormData({ email: '', full_name: '', password: '', re_password: '' });
+        setProfilePicture(null);
+        
+        if (onRegister) {
+          onRegister();
+        }
+      }
     } catch (err: any) {
       if (err.response?.data) {
-        const errors = Object.values(err.response.data).flat();
-        setError(errors.join(' '));
+        const errorData = err.response.data;
+        const errorMessages = Object.keys(errorData).map(key => {
+          return `${key.charAt(0).toUpperCase() + key.slice(1)}: ${errorData[key]}`;
+        });
+        setError(errorMessages.join(' '));
       } else {
-        setError('Registration failed. Please try again.');
+        setError('Registration failed. Please check your backend server.');
       }
     } finally {
       setLoading(false);
@@ -74,55 +91,58 @@ const Register: React.FC<RegisterProps> = ({ onRegister }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-        <h2 className="text-2xl font-bold text-center mb-6 text-gray-800">Register</h2>
+        <h2 className="text-2xl font-bold text-center mb-6 text-gray-800">Create Account</h2>
 
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-4 text-sm rounded">
             {error}
           </div>
         )}
 
         {success && (
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+          <div className="bg-green-50 border-l-4 border-green-500 text-green-700 p-4 mb-4 text-sm rounded">
             {success}
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email">
-              Email
+            <label className="block text-gray-700 text-sm font-semibold mb-2" htmlFor="full_name">
+              Full Name
+            </label>
+            <input
+              type="text"
+              id="full_name"
+              name="full_name" // CHANGED: match state and backend
+              placeholder="Enter your name"
+              value={formData.full_name}
+              onChange={handleInputChange}
+              className="w-full py-2 px-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            />
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-gray-700 text-sm font-semibold mb-2" htmlFor="email">
+              Email Address
             </label>
             <input
               type="email"
               id="email"
               name="email"
+              placeholder="email@example.com"
               value={formData.email}
               onChange={handleInputChange}
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              className="w-full py-2 px-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
 
+          {/* NEW: Profile Picture Input */}
           <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="name">
-              Name
-            </label>
-            <input
-              type="text"
-              id="name"
-              name="name"
-              value={formData.name}
-              onChange={handleInputChange}
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              required
-            />
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="profile_picture">
+            <label className="block text-gray-700 text-sm font-semibold mb-2" htmlFor="profile_picture">
               Profile Picture
             </label>
             <input
@@ -130,50 +150,54 @@ const Register: React.FC<RegisterProps> = ({ onRegister }) => {
               id="profile_picture"
               accept="image/*"
               onChange={handleFileChange}
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
             />
           </div>
 
           <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="password">
+            <label className="block text-gray-700 text-sm font-semibold mb-2" htmlFor="password">
               Password
             </label>
             <input
               type="password"
               id="password"
               name="password"
+              placeholder="Minimum 8 characters"
               value={formData.password}
               onChange={handleInputChange}
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              className="w-full py-2 px-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
 
           <div className="mb-6">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="re_password">
+            <label className="block text-gray-700 text-sm font-semibold mb-2" htmlFor="re_password">
               Confirm Password
             </label>
             <input
               type="password"
               id="re_password"
               name="re_password"
+              placeholder="Repeat your password"
               value={formData.re_password}
               onChange={handleInputChange}
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              className="w-full py-2 px-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
 
-          <div className="flex items-center justify-between">
-            <button
-              type="submit"
-              disabled={loading}
-              className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50"
-            >
-              {loading ? 'Registering...' : 'Register'}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors disabled:opacity-50"
+          >
+            {loading ? 'Processing...' : 'Register Account'}
+          </button>
         </form>
+        
+        <p className="mt-4 text-center text-sm text-gray-600">
+          Already have an account? <a href="/login" className="text-blue-600 hover:underline">Log in</a>
+        </p>
       </div>
     </div>
   );

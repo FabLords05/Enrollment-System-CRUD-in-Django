@@ -75,7 +75,16 @@ INSTALLED_APPS = [
     'djoser',
     'api',
     'user',
+    'cloudinary',
+    'cloudinary_storage',
 ]
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': 'dqbpis56o',
+    'API_KEY': '111147917928755',
+    'API_SECRET': 'xUVkmH5mltpaoZjay5UAWWjAr8A',
+}
 
 AUTH_USER_MODEL = 'user.User'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -195,16 +204,23 @@ DJOSER = {
     'LOGIN_FIELD': 'email',
     'USER_CREATE_PASSWORD_RETYPE': True,
     'SERIALIZERS': {
-        'user_create': 'user.serializers.UserCreateSerializer',
-        'user': 'user.serializers.UserSerializer',
+        'user': 'user.serializers.UserSerializer', # Use your custom serializer
+        'current_user': 'user.serializers.UserSerializer',
     },
     'SEND_ACTIVATION_EMAIL': True,
     'ACTIVATION_URL': 'activate/{uid}/{token}',
 }
 
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST_USER = 'booc.jefferson2@gmail.com'
+EMAIL_HOST_PASSWORD = 'cxnu zbdc mipm pntf'
+DEFAULT_FROM_EMAIL = 'booc.jefferson2@gmail.com'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True  # This must be True
 # Email configuration
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # For development
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+#EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # For development
+#EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 # EMAIL_HOST = 'smtp.gmail.com'
 # EMAIL_PORT = 587
 # EMAIL_USE_TLS = True
