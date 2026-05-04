@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 
 interface LoginProps {
@@ -6,103 +6,111 @@ interface LoginProps {
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+  });
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const message = urlParams.get('message');
-
-    if (message === 'activated') {
-      setSuccess('Account activated successfully! You can now log in.');
-    } else if (message === 'already_activated') {
-      setSuccess('Your account is already activated. You can log in.');
-    } else if (message === 'invalid_link') {
-      setError('Invalid activation link. Please try registering again.');
-    }
-  }, []);
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    setSuccess('');
 
     try {
+      // Hit Djoser's default endpoint for creating JWT tokens
       const response = await axios.post('http://localhost:8000/auth/jwt/create/', {
-        email,
-        password,
+        email: formData.email,
+        password: formData.password,
       });
 
-      const token = response.data.access;
-      localStorage.setItem('token', token);
-      onLogin(token);
+      // Grab the tokens from Django's response
+      const accessToken = response.data.access;
+      const refreshToken = response.data.refresh;
+
+      // Save them securely in the browser so the user stays logged in
+      localStorage.setItem('token', accessToken);
+      localStorage.setItem('refresh_token', refreshToken);
+      
+      // Tell App.tsx that we successfully logged in!
+      onLogin(accessToken);
+      
     } catch (err: any) {
-      setError('Invalid credentials. Please try again.');
+      if (err.response?.status === 401) {
+        setError('No active account found. (Did you activate your email?)');
+      } else {
+        setError('Server error. Please check if your backend is running.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
         <h2 className="text-2xl font-bold text-center mb-6 text-gray-800">Login</h2>
 
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-6 text-sm rounded">
             {error}
-          </div>
-        )}
-
-        {success && (
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-            {success}
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email">
-              Email
+            <label className="block text-gray-700 text-sm font-semibold mb-2" htmlFor="email">
+              Email Address
             </label>
             <input
               type="email"
               id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              name="email"
+              placeholder="email@example.com"
+              value={formData.email}
+              onChange={handleInputChange}
+              className="w-full py-2 px-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
 
           <div className="mb-6">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="password">
+            <label className="block text-gray-700 text-sm font-semibold mb-2" htmlFor="password">
               Password
             </label>
             <input
               type="password"
               id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              name="password"
+              placeholder="Enter your password"
+              value={formData.password}
+              onChange={handleInputChange}
+              className="w-full py-2 px-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
 
-          <div className="flex items-center justify-between">
-            <button
-              type="submit"
-              disabled={loading}
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50"
-            >
-              {loading ? 'Logging in...' : 'Login'}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors disabled:opacity-50"
+          >
+            {loading ? 'Logging in...' : 'Log In'}
+          </button>
         </form>
+
+        {/* --- HERE IS YOUR NEW REGISTER LINK --- */}
+        <p className="mt-4 text-center text-sm text-gray-600">
+          Don't have an account? <a href="/register" className="text-blue-600 hover:underline">Register here</a>
+        </p>
       </div>
     </div>
   );
