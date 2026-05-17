@@ -6,6 +6,7 @@ from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+
 # 2. Import ALL your viewsets (Old and New)
 from enrollment.views import (
     EnrollmentRecordViewSet, 
@@ -16,6 +17,9 @@ from enrollment.views import (
     StudentProfileViewSet, 
     ChangeRequestViewSet
 )
+# Add these imports at the top
+from academics.views import TermViewSet, CourseViewSet
+from scheduling.views import RoomViewSet, TimeSlotViewSet
 
 # 3. Your custom serializer to inject the 'role'
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -41,6 +45,11 @@ router.register(r'instructors', InstructorViewSet, basename='instructor')
 router.register(r'subjects', SubjectViewSet, basename='subject')
 router.register(r'students', StudentProfileViewSet, basename='student')
 router.register(r'requests', ChangeRequestViewSet, basename='request')
+# Add these below your existing router.register lines
+router.register(r'terms', TermViewSet, basename='term')
+router.register(r'courses', CourseViewSet, basename='course')
+router.register(r'rooms', RoomViewSet, basename='room')
+router.register(r'timeslots', TimeSlotViewSet, basename='timeslot')
 
 urlpatterns = [
     path('admin/', admin.site.urls),

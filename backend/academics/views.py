@@ -1,3 +1,11 @@
-from django.shortcuts import render
+from rest_framework import viewsets
+from .models import Term, Course
+from .serializers import TermSerializer, CourseSerializer
 
-# Create your views here.
+class TermViewSet(viewsets.ModelViewSet):
+    queryset = Term.objects.all()
+    serializer_class = TermSerializer
+
+class CourseViewSet(viewsets.ModelViewSet):
+    queryset = Course.objects.all()
+    serializer_class = CourseSerializer
