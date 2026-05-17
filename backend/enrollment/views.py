@@ -58,7 +58,7 @@ class InstructorViewSet(viewsets.ModelViewSet):
 class SubjectViewSet(viewsets.ModelViewSet):
     queryset = Subject.objects.all()
     serializer_class = SubjectSerializer
-    permission_classes = [IsAuthenticated, IsAdminUserRole | IsRegistrar | IsStudent]
+    permission_classes = [IsAuthenticated, IsAdminUserRole | IsRegistrar | IsStudent | IsCashier]  # Adjust as needed
 
     def get_queryset(self):
         user = self.request.user
