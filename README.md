@@ -39,29 +39,28 @@ cd backend
 This keeps your global Python installation clean.
 
 * **On Linux/macOS:**
+
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 
 ```
 
-
 * **On Windows (Command Prompt):**
+
 ```cmd
 python -m venv venv
 venv\Scripts\activate
 
 ```
 
-
 * **On Windows (PowerShell):**
+
 ```powershell
 python -m venv venv
 .\venv\Scripts\Activate.ps1
 
 ```
-
-
 
 ### 2. Install Python Packages
 
@@ -139,3 +138,4 @@ The terminal will generate a local link, typically: **`http://localhost:5173/`**
 
 ```
 
+```
