@@ -43,7 +43,7 @@ export default function Login() {
     return (
         <div className="flex min-h-screen items-center justify-center bg-gray-100">
             <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-md">
-                <h2 className="mb-6 text-center text-3xl font-bold text-gray-800">EMS Login</h2>
+                <h2 className="mb-6 text-center text-3xl font-bold text-gray-800">EduTrack Login</h2>
                 {error && <p className="mb-4 text-center text-red-500">{error}</p>}
                 <form onSubmit={handleLogin} className="space-y-4">
                     <div>

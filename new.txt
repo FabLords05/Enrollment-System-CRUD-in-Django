@@ -1,0 +1,5 @@
+.
+├── backend
+└── frontend
+
+3 directories

@@ -36,7 +36,7 @@ export function AdminShell({
         
         <div className="pt-4 px-5 pb-3 border-b border-white/10">
           <div className="bg-ustpGold text-ustpDarkBlue font-bold text-[10px] px-2 py-0.5 rounded inline-block mb-1 tracking-wide">
-            USTP EMS
+            EduTrack Portal
           </div>
           <div className="text-sm font-bold text-white leading-tight">Admin Portal</div>
           <div className="text-[10px] text-white/45 mt-0.5">Enrollment Management System</div>

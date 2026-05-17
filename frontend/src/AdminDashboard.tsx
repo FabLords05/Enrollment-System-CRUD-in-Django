@@ -75,7 +75,7 @@ export default function AdminDashboard() {
                     <div className="bg-gradient-to-r from-gray-900 via-ustpDarkBlue to-blue-900 rounded-xl p-6 text-white flex items-center justify-between shadow-sm">
                         <div>
                             <div className="text-xs font-semibold text-white/50 uppercase tracking-widest mb-1">Control Console</div>
-                            <h2 className="text-xl font-extrabold">Welcome to the Admin Portal 🏛️</h2>
+                            <h2 className="text-xl font-extrabold">Welcome to the Edutrack Portal</h2>
                             <p className="text-sm text-white/60 mt-1">University Domain Infrastructure Configuration Management</p>
                         </div>
                         <div className="hidden sm:block text-5xl opacity-20">🛡️</div>

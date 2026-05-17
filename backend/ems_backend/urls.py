@@ -6,6 +6,10 @@ from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+# Rebrand the Django Admin interface to EduTrack
+admin.site.site_header = "EduTrack Admin Portal"
+admin.site.site_title = "EduTrack Portal"
+admin.site.index_title = "Welcome to EduTrack Infrastructure Management"
 
 # 2. Import ALL your viewsets (Old and New)
 from enrollment.views import (
@@ -61,3 +65,4 @@ urlpatterns = [
     
     path('api/', include(router.urls)),
 ]
+

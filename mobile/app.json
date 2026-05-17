@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "EduTrack Mobile",
+    "slug": "edutrack-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "newArchEnabled": false,
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#003366"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fablords.edutrackstudent"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#003366"
+      },
+      "package": "com.fablords.edutrackstudent",
+      "usesCleartextTraffic": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
+  }
+}
