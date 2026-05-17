@@ -106,23 +106,20 @@ class ChangeRequestSerializer(serializers.ModelSerializer):
 class EnrolledClassSerializer(serializers.ModelSerializer):
     class Meta:
         model = EnrolledClass
-        fields = ['id', 'enrollment_record', 'subject']
+        fields = ['id', 'enrollment_record', 'section']
 
     def validate(self, data):
-        subject = data['subject']
+        section = data['section']
         record = data['enrollment_record']
 
-        # 1. Capacity Check
-        current_enrollees = EnrolledClass.objects.filter(subject__secId=subject.secId).count()
-        if current_enrollees >= subject.secId.slots:
-            raise serializers.ValidationError(f"The section {subject.secId.nm} has reached its maximum capacity.")
-
-        # 2. Time Clash Check
-        existing_classes = EnrolledClass.objects.filter(enrollment_record=record)
-        for ec in existing_classes:
-            if ec.subject.days == subject.days:
-                if (subject.st < ec.subject.et and subject.et > ec.subject.st):
-                    raise serializers.ValidationError(f"Time clash detected! {subject.nm} overlaps with {ec.subject.nm}.")
+        # 1. Capacity Validation
+        current_enrolled = EnrolledClass.objects.filter(section=section).count()
+        if current_enrolled >= section.capacity:
+            raise serializers.ValidationError({"section": "This section has reached its maximum capacity."})
+            
+        # 2. Duplicate Validation
+        if EnrolledClass.objects.filter(enrollment_record=record, section=section).exists():
+            raise serializers.ValidationError({"section": "Student is already enrolled in this section."})
 
         return data
 

@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import api from '../../api/axiosSetup';
 import Icon from '../ui/Icon';
 import Avatar from '../ui/Avatar';
 import Modal from '../ui/Modal';
 
+// 1. Updated Interface to match Django EXACTLY
 interface Student {
     id: number | null;
     email: string;
-    first_name: string; // aligned with standard Django User fields
+    first_name: string; 
     last_name: string;
     middle_initial?: string;
     suffix?: string;
@@ -15,12 +17,12 @@ interface Student {
     address?: string;
     phone?: string;
     section?: number | null;
-    app_completed: boolean;
+    enrollment_status: 'ADVISING' | 'ASSESSED' | 'PAID' | 'ENROLLED'; 
 }
 
 interface Section {
     id: number;
-    nm: string;
+    name: string; // Updated from 'nm' to match your new Django models
 }
 
 export default function StudentsManager() {
@@ -32,7 +34,7 @@ export default function StudentsManager() {
 
     // Form State
     const [form, setForm] = useState<Partial<Student>>({});
-    const [password, setPassword] = useState(''); // Only for new accounts
+    const [password, setPassword] = useState(''); 
 
     useEffect(() => {
         fetchStudents();
@@ -58,7 +60,8 @@ export default function StudentsManager() {
     };
 
     const openNew = () => {
-        setForm({ id: null, email: '', first_name: '', last_name: '', app_completed: false });
+        // 2. Initialize with the correct Django status
+        setForm({ id: null, email: '', first_name: '', last_name: '', enrollment_status: 'ADVISING' });
         setPassword('');
         setModalOpen(true);
     };
@@ -69,17 +72,29 @@ export default function StudentsManager() {
     };
 
     const saveStudent = async () => {
-        if (!form.first_name || !form.last_name || !form.email) return;
+        if (!form.first_name || !form.last_name || !form.email) {
+            alert("First Name, Last Name, and Email are required fields.");
+            return; 
+        }
+
         try {
             if (form.id) {
-                await api.put(`students/${form.id}/`, form);
+                await api.patch(`students/${form.id}/`, form);
             } else {
                 await api.post('students/', { ...form, password: password || 'student123' });
             }
+            
             setModalOpen(false);
             fetchStudents();
-        } catch (err) {
-            console.error("Error saving student", err);
+
+        } catch (error) {
+            console.error("Error saving student", error);
+            if (axios.isAxiosError(error) && error.response) {
+                console.error("Django says:", error.response.data);
+                alert(`Backend Error: ${JSON.stringify(error.response.data)}`);
+            } else {
+                alert("An error occurred while saving the student. Please check the console for details.");
+            }
         }
     };
 
@@ -142,14 +157,22 @@ export default function StudentsManager() {
                             <label className="block text-xs font-bold text-gray-500 mb-1">ASSIGNED SECTION</label>
                             <select className="w-full border p-2 rounded-md bg-white" value={form.section || ''} onChange={e => setForm({...form, section: e.target.value ? Number(e.target.value) : null})}>
                                 <option value="">None</option>
-                                {sections.map(sec => <option key={sec.id} value={sec.id}>{sec.nm}</option>)}
+                                {/* Updated sec.nm to sec.name */}
+                                {sections.map(sec => <option key={sec.id} value={sec.id}>{sec.name}</option>)}
                             </select>
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-500 mb-1">ENROLLMENT STATUS</label>
-                            <select className="w-full border p-2 rounded-md bg-white" value={form.app_completed ? '1' : '0'} onChange={e => setForm({...form, app_completed: e.target.value === '1'})}>
-                                <option value="0">Pending Application</option>
-                                <option value="1">Fully Enrolled</option>
+                            {/* 3. Dropdown mapped directly to Django's 4 stages */}
+                            <select 
+                                className="w-full border p-2 rounded-md bg-white" 
+                                value={form.enrollment_status || 'ADVISING'} 
+                                onChange={e => setForm({...form, enrollment_status: e.target.value as any})}
+                            >
+                                <option value="ADVISING">Advising (Pending)</option>
+                                <option value="ASSESSED">Assessed</option>
+                                <option value="PAID">Paid</option>
+                                <option value="ENROLLED">Officially Enrolled</option>
                             </select>
                         </div>
                     </div>
@@ -200,11 +223,18 @@ export default function StudentsManager() {
                                     </td>
                                     <td className="p-4 text-sm text-gray-600">{s.email}</td>
                                     <td className="p-4">
-                                        {currentSec ? <span className="px-2 py-1 bg-ustp-blue-light text-ustp-blue rounded text-xs font-bold">{currentSec.nm}</span> : <span className="text-gray-400 text-xs">Unassigned</span>}
+                                        {/* Updated currentSec.nm to currentSec.name */}
+                                        {currentSec ? <span className="px-2 py-1 bg-ustp-blue-light text-ustp-blue rounded text-xs font-bold">{currentSec.name}</span> : <span className="text-gray-400 text-xs">Unassigned</span>}
                                     </td>
                                     <td className="p-4">
-                                        <span className={`px-2 py-0.5 rounded text-xs font-bold ${s.app_completed ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                            {s.app_completed ? 'Enrolled' : 'Pending'}
+                                        {/* 4. Table UI updated to reflect the 4 new stages */}
+                                        <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                                            s.enrollment_status === 'ENROLLED' ? 'bg-green-100 text-green-700' : 
+                                            s.enrollment_status === 'PAID' ? 'bg-blue-100 text-blue-700' :
+                                            s.enrollment_status === 'ASSESSED' ? 'bg-purple-100 text-purple-700' :
+                                            'bg-yellow-100 text-yellow-700'
+                                        }`}>
+                                            {s.enrollment_status || 'ADVISING'}
                                         </span>
                                     </td>
                                     <td className="p-4 text-right space-x-2">
