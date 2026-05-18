@@ -67,8 +67,8 @@ class SubjectViewSet(viewsets.ModelViewSet):
         if user.role == 'STUDENT':
             # Check if they actually have a profile and a section assigned
             if hasattr(user, 'student_profile') and user.student_profile.section_id:
-                # ONLY return subjects matching their specific section
-                return Subject.objects.filter(secId_id=user.student_profile.section_id)
+                # ONLY return catalog subjects that are offered to the student's section
+                return Subject.objects.filter(offerings__section_id=user.student_profile.section_id).distinct()
             
             # If they don't have a section assigned yet, return an empty list
             return Subject.objects.none()

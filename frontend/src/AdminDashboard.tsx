@@ -130,7 +130,7 @@ export default function AdminDashboard() {
                                 <div className="text-xs text-gray-400 mt-1">Manage admissions profiles and clearances.</div>
                             </button>
                             <button onClick={() => setActivePage('sections')} className="p-4 border border-gray-100 rounded-xl bg-gray-50/50 hover:bg-purple-50/50 hover:border-purple-200 transition-all text-left">
-                                <div className="font-bold text-purple-700 text-sm">🗂️ Sections & Rooms</div>
+                                <div className="font-bold text-purple-700 text-sm">🗂️ Sections</div>
                                 <div className="text-xs text-gray-400 mt-1">Configure structural blocks and capacities.</div>
                             </button>
                             <button onClick={() => setActivePage('subjects')} className="p-4 border border-gray-100 rounded-xl bg-gray-50/50 hover:bg-orange-50/50 hover:border-orange-200 transition-all text-left">

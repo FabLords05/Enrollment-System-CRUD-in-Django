@@ -11,19 +11,16 @@ admin.site.site_header = "EduTrack Admin Portal"
 admin.site.site_title = "EduTrack Portal"
 admin.site.index_title = "Welcome to EduTrack Infrastructure Management"
 
-# 2. Import ALL your viewsets (Old and New)
+# 2. Corrected Import Routes
 from enrollment.views import (
     EnrollmentRecordViewSet, 
     EnrolledClassViewSet,
     SectionViewSet, 
-    InstructorViewSet, 
-    SubjectViewSet, 
     StudentProfileViewSet, 
     ChangeRequestViewSet
 )
-# Add these imports at the top
-from academics.views import TermViewSet, CourseViewSet
-from scheduling.views import RoomViewSet, TimeSlotViewSet
+# 🟢 FIXED: InstructorViewSet and SubjectViewSet imported from academics where they belong!
+from academics.views import TermViewSet, CourseViewSet, InstructorViewSet, SubjectViewSet, ClassOfferingViewSet
 
 # 3. Your custom serializer to inject the 'role'
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -46,15 +43,14 @@ router.register(r'enrollments', EnrollmentRecordViewSet, basename='enrollment')
 router.register(r'enrolled-classes', EnrolledClassViewSet, basename='enrolled-class')
 # New Phase 7 Admin Panel endpoints
 router.register(r'sections', SectionViewSet, basename='section')
-router.register(r'instructors', InstructorViewSet, basename='instructor')
-router.register(r'subjects', SubjectViewSet, basename='subject')
 router.register(r'students', StudentProfileViewSet, basename='student')
 router.register(r'requests', ChangeRequestViewSet, basename='request')
-# Add these below your existing router.register lines
+# 🟢 Centralized API routes
 router.register(r'terms', TermViewSet, basename='term')
 router.register(r'courses', CourseViewSet, basename='course')
-router.register(r'rooms', RoomViewSet, basename='room')
-router.register(r'timeslots', TimeSlotViewSet, basename='timeslot')
+router.register(r'instructors', InstructorViewSet, basename='instructor')
+router.register(r'subjects', SubjectViewSet, basename='subject')
+router.register(r'offerings', ClassOfferingViewSet, basename='offering')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -65,4 +61,3 @@ urlpatterns = [
     
     path('api/', include(router.urls)),
 ]
-

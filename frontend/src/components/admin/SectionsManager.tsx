@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../api/axiosSetup';
 import Icon from '../ui/Icon';
+import Avatar from '../ui/Avatar';
 import Modal from '../ui/Modal';
 
 // 1. Updated Interfaces to match Django Models
@@ -10,25 +11,24 @@ interface Section {
   capacity: number;
   term: number;
   course: number;
-  room: number | null;
-  time_slot: number | null;
-  enrolled?: number;
 }
 
 // Interfaces for relational data dropdowns
 interface Term { id: number; name: string; }
 interface Course { id: number; code: string; name: string; }
-interface Room { id: number; name: string; }
-interface TimeSlot { id: number; day_of_week: string; start_time: string; end_time: string; }
+interface Subject { id: number; nm: string; secId: number; units: number; days: string; st: string; et: string; room: string; }
+interface Student { id: number; first_name: string; last_name: string; email: string; section?: number | null; enrollment_status: string; }
 
 export default function SectionsManager() {
   const [sections, setSections] = useState<Section[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [expandedSections, setExpandedSections] = useState<number[]>([]);
+  const [selectedSectionForRoster, setSelectedSectionForRoster] = useState<Section | null>(null);
   
   // States for the foreign key dropdowns
   const [terms, setTerms] = useState<Term[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null); 
@@ -39,13 +39,13 @@ export default function SectionsManager() {
     name: '', 
     capacity: 40, 
     term: '' as number | '', 
-    course: '' as number | '', 
-    room: '' as number | '', 
-    time_slot: '' as number | '' 
+    course: '' as number | '' 
   });
 
   useEffect(() => {
     fetchSections();
+    fetchSubjects();
+    fetchStudents();
     fetchDependencies();
   }, []);
 
@@ -58,13 +58,29 @@ export default function SectionsManager() {
     }
   };
 
+  const fetchSubjects = async () => {
+    try {
+      const response = await api.get('subjects/');
+      setSubjects(response.data);
+    } catch (error) {
+      console.error("Failed to fetch subjects", error);
+    }
+  };
+
+  const fetchStudents = async () => {
+    try {
+      const response = await api.get('students/');
+      setStudents(response.data);
+    } catch (error) {
+      console.error("Failed to fetch students", error);
+    }
+  };
+
   // Fetch data for dropdowns (fails gracefully if endpoints aren't built yet)
   const fetchDependencies = async () => {
     try {
       api.get('terms/').then(res => setTerms(res.data)).catch(() => console.warn("Terms API not ready"));
       api.get('courses/').then(res => setCourses(res.data)).catch(() => console.warn("Courses API not ready"));
-      api.get('rooms/').then(res => setRooms(res.data)).catch(() => console.warn("Rooms API not ready"));
-      api.get('timeslots/').then(res => setTimeSlots(res.data)).catch(() => console.warn("TimeSlots API not ready"));
     } catch (error) {
       console.error("Dependency fetch error", error);
     }
@@ -72,7 +88,7 @@ export default function SectionsManager() {
 
   const handleOpenNew = () => {
     setEditingId(null);
-    setFormData({ name: '', capacity: 40, term: '', course: '', room: '', time_slot: '' });
+    setFormData({ name: '', capacity: 40, term: '', course: '' });
     setModalOpen(true);
   };
 
@@ -82,20 +98,24 @@ export default function SectionsManager() {
       name: sec.name, 
       capacity: sec.capacity, 
       term: sec.term, 
-      course: sec.course, 
-      room: sec.room || '', 
-      time_slot: sec.time_slot || '' 
+      course: sec.course
     });
     setModalOpen(true);
+  };
+
+  const toggleSectionExpansion = (sectionId: number) => {
+    setExpandedSections(prev =>
+      prev.includes(sectionId)
+        ? prev.filter(id => id !== sectionId)
+        : [...prev, sectionId]
+    );
   };
 
   const handleSave = async () => {
     try {
       // Clean up empty strings to null for optional foreign keys before sending
       const payload = {
-        ...formData,
-        room: formData.room === '' ? null : formData.room,
-        time_slot: formData.time_slot === '' ? null : formData.time_slot
+        ...formData
       };
 
       if (editingId) {
@@ -105,7 +125,7 @@ export default function SectionsManager() {
       }
       
       setModalOpen(false);
-      setFormData({ name: '', capacity: 40, term: '', course: '', room: '', time_slot: '' });
+      setFormData({ name: '', capacity: 40, term: '', course: '' });
       setEditingId(null);
       fetchSections();
 
@@ -165,8 +185,13 @@ export default function SectionsManager() {
           </div>
         ) : (
           sections.map(sec => {
-            const capacityPct = sec.capacity > 0 ? Math.round(((sec.enrolled || 0) / sec.capacity) * 100) : 0;
-            
+            const sectionStudents = students.filter(stud => stud.section === sec.id);
+            const enrolledCount = sectionStudents.length;
+            const capacityPct = sec.capacity > 0 ? Math.round((enrolledCount / sec.capacity) * 100) : 0;
+            const sectionSubjects = subjects.filter(sub => sub.secId === sec.id);
+            const totalUnits = sectionSubjects.reduce((sum, sub) => sum + sub.units, 0);
+            const isExpanded = expandedSections.includes(sec.id);
+
             return (
               <div key={sec.id} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm hover:-translate-y-0.5 transition-transform">
                 <div className="h-1 bg-gradient-to-r from-ustpBlue to-ustpGold rounded-t-2xl -mx-5 -mt-5 mb-4" />
@@ -181,12 +206,12 @@ export default function SectionsManager() {
                   </span>
                 </div>
 
-                <div className="flex gap-2 mb-4">
-                  <div className="flex-1 bg-gray-50 rounded-lg p-2 text-center">
-                    <div className="font-bold text-[15px] text-ustpBlue">{sec.enrolled || 0}</div>
-                    <div className="text-[9px] text-gray-500 uppercase tracking-wider font-semibold">Enrolled</div>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="bg-gray-50 rounded-lg p-3 text-center">
+                    <div className="font-bold text-[15px] text-ustpBlue">{enrolledCount}</div>
+                    <div className="text-[9px] text-gray-500 uppercase tracking-wider font-semibold">Students Enrolled</div>
                   </div>
-                  <div className="flex-1 bg-gray-50 rounded-lg p-2 text-center">
+                  <div className="bg-gray-50 rounded-lg p-3 text-center">
                     <div className="font-bold text-[15px] text-ustpBlue">{sec.capacity}</div>
                     <div className="text-[9px] text-gray-500 uppercase tracking-wider font-semibold">Total Slots</div>
                   </div>
@@ -207,10 +232,67 @@ export default function SectionsManager() {
                   </div>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="mb-4 rounded-2xl border border-gray-100 bg-slate-50 p-4">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div>
+                      <div className="text-sm font-semibold text-ustpDarkBlue">Section Overview</div>
+                      <div className="text-[11px] text-gray-500">{sectionSubjects.length} subject{sectionSubjects.length === 1 ? '' : 's'} · {totalUnits} unit{totalUnits === 1 ? '' : 's'} · {enrolledCount} / {sec.capacity} students</div>
+                    </div>
+                    <button 
+                      onClick={() => toggleSectionExpansion(sec.id)}
+                      className="text-[12px] font-semibold text-ustpBlue hover:text-blue-700"
+                    >
+                      {isExpanded ? 'Hide Details' : 'View Details'}
+                    </button>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="space-y-4 pt-2">
+                      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                        <div className="flex items-center justify-between gap-3 mb-3">
+                          <div>
+                            <div className="text-sm font-semibold text-gray-800">Curriculum</div>
+                            <div className="text-[11px] text-gray-500">{sectionSubjects.length} subject{sectionSubjects.length === 1 ? '' : 's'} · {totalUnits} unit{totalUnits === 1 ? '' : 's'}</div>
+                          </div>
+                        </div>
+                        {sectionSubjects.length === 0 ? (
+                          <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500">No subjects assigned to this section yet.</div>
+                        ) : (
+                          <div className="space-y-3">
+                            {sectionSubjects.map(sub => (
+                              <div key={sub.id} className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
+                                <div className="flex items-center justify-between gap-3">
+                                  <div>
+                                    <div className="font-semibold text-gray-800">{sub.nm}</div>
+                                    <div className="text-[11px] text-gray-500 mt-1">{sub.days} · {sub.st}–{sub.et}</div>
+                                  </div>
+                                  <div className="text-xs font-semibold text-gray-600 bg-gray-100 rounded-full px-3 py-1">
+                                    {sub.units} unit{sub.units === 1 ? '' : 's'}
+                                  </div>
+                                </div>
+                                <div className="mt-3 text-[11px] text-gray-500">
+                                  Room: <span className="font-semibold text-gray-700">{sub.room || 'TBA'}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <button 
+                    onClick={() => setSelectedSectionForRoster(sec)}
+                    className="flex-1 min-w-[160px] bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-ustpBlue py-2 rounded-lg text-[12px] font-semibold transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Icon name="users" size={14} /> View Roster
+                  </button>
                   <button 
                     onClick={() => handleEdit(sec)} 
-                    className="flex-1 bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-ustpBlue py-1.5 rounded-lg text-[12px] font-semibold transition-colors flex items-center justify-center gap-1.5"
+                    className="flex-1 min-w-[120px] bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-ustpBlue py-2 rounded-lg text-[12px] font-semibold transition-colors flex items-center justify-center gap-1.5"
                   >
                     <Icon name="edit" size={12} /> Edit
                   </button>
@@ -226,6 +308,57 @@ export default function SectionsManager() {
           })
         )}
       </div>
+
+      {/* Roster Modal */}
+      {selectedSectionForRoster && (
+        <Modal
+          maxWidth="max-w-[600px]"
+          title={`Roster — ${selectedSectionForRoster.name}`}
+          onClose={() => setSelectedSectionForRoster(null)}
+          footer={
+            <button
+              onClick={() => setSelectedSectionForRoster(null)}
+              className="px-4 py-2 bg-ustpBlue text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
+            >
+              Close
+            </button>
+          }
+        >
+          <div className="space-y-4">
+            <div className="text-sm font-semibold text-gray-700">{students.filter(stud => stud.section === selectedSectionForRoster.id).length} student{students.filter(stud => stud.section === selectedSectionForRoster.id).length === 1 ? '' : 's'} enrolled</div>
+            <div className="rounded-2xl border border-gray-200 bg-white max-h-[60vh] overflow-y-auto p-3">
+              {students.filter(stud => stud.section === selectedSectionForRoster.id).length === 0 ? (
+                <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500">No students enrolled in this block section.</div>
+              ) : (
+                <div className="space-y-3">
+                  {students.filter(stud => stud.section === selectedSectionForRoster.id).map(student => {
+                    const initials = `${student.first_name?.[0] || ''}${student.last_name?.[0] || ''}`.toUpperCase();
+                    return (
+                      <div key={student.id} className="flex items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-gray-50 p-3">
+                        <div className="flex items-center gap-3">
+                          <Avatar init={initials} size={36} />
+                          <div>
+                            <div className="font-semibold text-gray-800">{student.first_name} {student.last_name}</div>
+                            <div className="text-[11px] text-gray-500">{student.email}</div>
+                          </div>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-[11px] font-semibold ${
+                          student.enrollment_status === 'ENROLLED' ? 'bg-emerald-100 text-emerald-700' :
+                          student.enrollment_status === 'PAID' ? 'bg-blue-100 text-blue-700' :
+                          student.enrollment_status === 'ASSESSED' ? 'bg-purple-100 text-purple-700' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {student.enrollment_status}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* Creation/Edit Modal */}
       {modalOpen && (
@@ -266,24 +399,9 @@ export default function SectionsManager() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-[11px] font-semibold text-gray-600 mb-1 uppercase tracking-wider">Room (Optional)</label>
-                <select value={formData.room} onChange={e => setFormData({...formData, room: parseInt(e.target.value) || ''})} className="w-full border-1.5 border-gray-200 rounded-lg p-2.5 text-[13px] outline-none focus:border-ustpBlue focus:ring-4 focus:ring-blue-500/10 bg-white">
-                  <option value="">None / TBD</option>
-                  {rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                </select>
+                <label className="block text-[11px] font-semibold text-gray-600 mb-1 uppercase tracking-wider">Capacity (Total Slots)</label>
+                <input type="number" min="1" value={formData.capacity} onChange={e => setFormData({...formData, capacity: parseInt(e.target.value)})} className="w-full border-1.5 border-gray-200 rounded-lg p-2.5 text-[13px] outline-none focus:border-ustpBlue focus:ring-4 focus:ring-blue-500/10" />
               </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-gray-600 mb-1 uppercase tracking-wider">Time Slot (Optional)</label>
-                <select value={formData.time_slot} onChange={e => setFormData({...formData, time_slot: parseInt(e.target.value) || ''})} className="w-full border-1.5 border-gray-200 rounded-lg p-2.5 text-[13px] outline-none focus:border-ustpBlue focus:ring-4 focus:ring-blue-500/10 bg-white">
-                  <option value="">None / TBD</option>
-                  {timeSlots.map(ts => <option key={ts.id} value={ts.id}>{ts.day_of_week} {ts.start_time}-{ts.end_time}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold text-gray-600 mb-1 uppercase tracking-wider">Capacity (Total Slots)</label>
-              <input type="number" min="1" value={formData.capacity} onChange={e => setFormData({...formData, capacity: parseInt(e.target.value)})} className="w-full border-1.5 border-gray-200 rounded-lg p-2.5 text-[13px] outline-none focus:border-ustpBlue focus:ring-4 focus:ring-blue-500/10" />
             </div>
           </div>
         </Modal>

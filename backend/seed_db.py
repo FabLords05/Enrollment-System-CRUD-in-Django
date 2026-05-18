@@ -15,13 +15,13 @@ def seed_database():
 
     # --- USERS & ROLES ---
     print("Creating core staff accounts...")
-    admin, _ = BaseUser.objects.get_or_create(email="admin@school.edu", defaults={"role": "ADMIN"})
+    admin, _ = BaseUser.objects.get_or_create(email="admin@gmail.com", defaults={"role": "ADMIN"})
     if _: admin.set_password("password123"); admin.is_staff=True; admin.is_superuser=True; admin.save()
 
-    registrar, _ = BaseUser.objects.get_or_create(email="registrar@school.edu", defaults={"role": "REGISTRAR"})
+    registrar, _ = BaseUser.objects.get_or_create(email="registrar@gmail.com", defaults={"role": "REGISTRAR"})
     if _: registrar.set_password("password123"); registrar.save()
 
-    cashier, _ = BaseUser.objects.get_or_create(email="cashier@school.edu", defaults={"role": "CASHIER"})
+    cashier, _ = BaseUser.objects.get_or_create(email="cashier@gmail.com", defaults={"role": "CASHIER"})
     if _: cashier.set_password("password123"); cashier.save()
 
     print("Creating student accounts...")
@@ -66,8 +66,8 @@ def seed_database():
     )
 
     print("✅ Seeding complete! You can now log in with the generated accounts.")
-    print("Admin: admin@school.edu | Pass: password123")
-    print("Student: student1@school.edu | Pass: password123")
+    print("Admin: admin@gmail.com | Pass: password123")
+    print("Student: student1@gmail.com | Pass: password123")
 
 if __name__ == '__main__':
     seed_database()

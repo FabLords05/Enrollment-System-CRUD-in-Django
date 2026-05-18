@@ -6,9 +6,11 @@ interface ModalProps {
   onClose: () => void;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  maxWidth?: string; // 🟢 1. Added optional maxWidth prop
 }
 
-export default function Modal({ title, onClose, children, footer }: ModalProps) {
+// 🟢 2. Give it a default value of max-w-[520px] so old modals don't break
+export default function Modal({ title, onClose, children, footer, maxWidth = "max-w-[520px]" }: ModalProps) {
   return (
     <div 
       className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-5"
@@ -16,7 +18,8 @@ export default function Modal({ title, onClose, children, footer }: ModalProps) 
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-white rounded-2xl w-full max-w-[520px] max-h-[88vh] overflow-y-auto shadow-2xl flex flex-col animate-[fadeIn_0.2s_ease-out]">
+      {/* 🟢 3. Inject the dynamic maxWidth here */}
+      <div className={`bg-white rounded-2xl w-full ${maxWidth} max-h-[88vh] overflow-y-auto shadow-2xl flex flex-col animate-[fadeIn_0.2s_ease-out]`}>
         
         <div className="p-5 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10">
           <span className="text-[15px] font-bold text-ustpDarkBlue">{title}</span>

@@ -5,7 +5,6 @@ import Icon from '../ui/Icon';
 import Avatar from '../ui/Avatar';
 import Modal from '../ui/Modal';
 
-// 1. Updated Interface to match Django EXACTLY
 interface Student {
     id: number | null;
     email: string;
@@ -22,23 +21,34 @@ interface Student {
 
 interface Section {
     id: number;
-    name: string; // Updated from 'nm' to match your new Django models
+    name: string; 
+}
+
+interface Subject {
+    id: number;
+    nm: string;
+    secId: number;
+    units: number;
+    days: string;
+    st: string;
+    et: string;
 }
 
 export default function StudentsManager() {
     const [students, setStudents] = useState<Student[]>([]);
     const [sections, setSections] = useState<Section[]>([]);
+    const [subjects, setSubjects] = useState<Subject[]>([]);
     const [search, setSearch] = useState('');
     const [modalOpen, setModalOpen] = useState(false);
     const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
-    // Form State
     const [form, setForm] = useState<Partial<Student>>({});
     const [password, setPassword] = useState(''); 
 
     useEffect(() => {
         fetchStudents();
         fetchSections();
+        fetchSubjects();
     }, []);
 
     const fetchStudents = async () => {
@@ -59,8 +69,16 @@ export default function StudentsManager() {
         }
     };
 
+    const fetchSubjects = async () => {
+        try {
+            const response = await api.get('subjects/');
+            setSubjects(response.data);
+        } catch (err) {
+            console.error("Failed to fetch subjects", err);
+        }
+    };
+
     const openNew = () => {
-        // 2. Initialize with the correct Django status
         setForm({ id: null, email: '', first_name: '', last_name: '', enrollment_status: 'ADVISING' });
         setPassword('');
         setModalOpen(true);
@@ -90,10 +108,9 @@ export default function StudentsManager() {
         } catch (error) {
             console.error("Error saving student", error);
             if (axios.isAxiosError(error) && error.response) {
-                console.error("Django says:", error.response.data);
                 alert(`Backend Error: ${JSON.stringify(error.response.data)}`);
             } else {
-                alert("An error occurred while saving the student. Please check the console for details.");
+                alert("An error occurred while saving the student.");
             }
         }
     };
@@ -112,140 +129,200 @@ export default function StudentsManager() {
         `${s.first_name || ''} ${s.last_name || ''} ${s.email || ''}`.toLowerCase().includes(search.toLowerCase())
     );
 
+    const assignedSubjects = form.section 
+        ? subjects.filter(sub => sub.secId === form.section) 
+        : [];
+    const totalUnits = assignedSubjects.reduce((sum, sub) => sum + sub.units, 0);
+
     return (
         <>
-            {/* Delete Confirmation Modal */}
             {confirmDeleteId && (
                 <Modal title="Confirm Deletion" onClose={() => setConfirmDeleteId(null)} footer={
                     <>
-                        <button className="px-4 py-2 border rounded-md" onClick={() => setConfirmDeleteId(null)}>Cancel</button>
-                        <button className="px-4 py-2 bg-red-600 text-white rounded-md" onClick={() => deleteStudent(confirmDeleteId)}>Delete</button>
+                        <button className="px-4 py-2 border rounded-md font-medium text-sm hover:bg-gray-50 transition" onClick={() => setConfirmDeleteId(null)}>Cancel</button>
+                        <button className="px-4 py-2 bg-red-600 text-white rounded-md font-medium text-sm hover:bg-red-700 transition" onClick={() => deleteStudent(confirmDeleteId)}>Delete</button>
                     </>
                 }>
-                    <p className="text-gray-600">Permanently delete this student record? This action cannot be reversed.</p>
+                    <p className="text-gray-600 text-sm">Permanently delete this student record? This action cannot be reversed.</p>
                 </Modal>
             )}
 
-            {/* Main Form Modal */}
             {modalOpen && (
-                <Modal title={form.id ? 'Edit Student' : 'Add New Student'} onClose={() => setModalOpen(false)} footer={
-                    <>
-                        <button className="px-4 py-2 border rounded-md" onClick={() => setModalOpen(false)}>Cancel</button>
-                        <button className="px-4 py-2 bg-ustp-blue text-white rounded-md" onClick={saveStudent}>Save</button>
-                    </>
-                }>
-                    <div className="grid grid-cols-3 gap-4 mb-4">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">FIRST NAME</label>
-                            <input className="w-full border p-2 rounded-md" value={form.first_name || ''} onChange={e => setForm({...form, first_name: e.target.value})}/>
+                <Modal 
+                    maxWidth="max-w-[1000px]"  // 🟢 ADD THIS LINE HERE!
+                    title={form.id ? 'Student Academic Record' : 'Register New Student'} 
+                    onClose={() => setModalOpen(false)} 
+                    footer={
+                        <>
+                            <button className="px-4 py-2 border rounded-md font-medium text-sm hover:bg-gray-50 transition" onClick={() => setModalOpen(false)}>Cancel</button>
+                            <button className="px-4 py-2 bg-blue-600 text-white rounded-md font-medium text-sm hover:bg-blue-700 transition" onClick={saveStudent}>Save Changes</button>
+                        </>
+                    }
+                >
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 min-w-[900px]">
+                        
+                        {/* LEFT COLUMN: Editing Form */}
+                        <div className="space-y-4">
+                            <h3 className="text-[13px] font-extrabold text-gray-400 uppercase tracking-wider border-b pb-2">Profile & Status</h3>
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="col-span-2">
+                                    <label className="block text-[11px] font-bold text-gray-500 mb-1">FIRST NAME</label>
+                                    <input className="w-full border border-gray-200 p-2 rounded-md text-sm outline-none focus:border-blue-500" value={form.first_name || ''} onChange={e => setForm({...form, first_name: e.target.value})}/>
+                                </div>
+                                <div>
+                                    <label className="block text-[11px] font-bold text-gray-500 mb-1">LAST NAME</label>
+                                    <input className="w-full border border-gray-200 p-2 rounded-md text-sm outline-none focus:border-blue-500" value={form.last_name || ''} onChange={e => setForm({...form, last_name: e.target.value})}/>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-[11px] font-bold text-gray-500 mb-1">EMAIL ADDRESS</label>
+                                <input className="w-full border border-gray-200 p-2 rounded-md text-sm outline-none focus:border-blue-500" type="email" value={form.email || ''} onChange={e => setForm({...form, email: e.target.value})}/>
+                            </div>
+                            <div>
+                                <label className="block text-[11px] font-bold text-gray-500 mb-1">ENROLLMENT STATUS</label>
+                                <select 
+                                    className="w-full border border-gray-200 p-2 rounded-md bg-white text-sm outline-none focus:border-blue-500 font-bold" 
+                                    value={form.enrollment_status || 'ADVISING'} 
+                                    onChange={e => setForm({...form, enrollment_status: e.target.value as any})}
+                                >
+                                    <option value="ADVISING">Advising (Pending)</option>
+                                    <option value="ASSESSED">Assessed</option>
+                                    <option value="PAID">Paid</option>
+                                    <option value="ENROLLED">Officially Enrolled</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-[11px] font-bold text-gray-500 mb-1 text-blue-600">ASSIGNED BLOCK SECTION</label>
+                                <select 
+                                    className="w-full border-2 border-blue-100 p-2 rounded-md bg-blue-50/50 text-sm outline-none focus:border-blue-500 font-bold text-blue-800" 
+                                    value={form.section || ''} 
+                                    onChange={e => setForm({...form, section: e.target.value ? Number(e.target.value) : null})}
+                                >
+                                    <option value="">Unassigned</option>
+                                    {sections.map(sec => <option key={sec.id} value={sec.id}>{sec.name}</option>)}
+                                </select>
+                            </div>
+                            {!form.id && (
+                                <div>
+                                    <label className="block text-[11px] font-bold text-gray-500 mb-1">TEMPORARY PASSWORD</label>
+                                    <input className="w-full border border-gray-200 p-2 rounded-md text-sm outline-none focus:border-blue-500" type="password" placeholder="Defaults to 'student123'" value={password} onChange={e => setPassword(e.target.value)}/>
+                                </div>
+                            )}
                         </div>
+
+                        {/* RIGHT COLUMN: Live Subjects Preview */}
                         <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">LAST NAME</label>
-                            <input className="w-full border p-2 rounded-md" value={form.last_name || ''} onChange={e => setForm({...form, last_name: e.target.value})}/>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">M.I.</label>
-                            <input className="w-full border p-2 rounded-md" maxLength={1} value={form.middle_initial || ''} onChange={e => setForm({...form, middle_initial: e.target.value})}/>
+                            <h3 className="text-[13px] font-extrabold text-gray-400 uppercase tracking-wider border-b pb-2 mb-4">Block Curriculum</h3>
+                            {form.section ? (
+                                assignedSubjects.length > 0 ? (
+                                    <div className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                                        <table className="w-full text-left text-[12px]">
+                                            <thead className="bg-gray-50 border-b border-gray-200">
+                                                <tr>
+                                                    <th className="p-3 font-bold text-gray-600">Subject</th>
+                                                    <th className="p-3 font-bold text-gray-600">Schedule</th>
+                                                    <th className="p-3 font-bold text-gray-600 text-center">Units</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {assignedSubjects.map(sub => (
+                                                    <tr key={sub.id} className="border-b border-gray-50 last:border-0">
+                                                        <td className="p-3 font-semibold text-gray-800">{sub.nm}</td>
+                                                        <td className="p-3 text-gray-500">{sub.days} {sub.st}</td>
+                                                        <td className="p-3 text-center font-bold text-blue-600">{sub.units}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                        <div className="bg-gray-50 p-3 border-t border-gray-200 flex justify-between items-center">
+                                            <span className="text-[11px] font-bold text-gray-500 uppercase">Total Term Load</span>
+                                            <span className="text-sm font-black text-blue-700">{totalUnits} Units</span>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="h-32 flex items-center justify-center border-2 border-dashed border-gray-200 rounded-xl bg-gray-50 text-xs font-semibold text-gray-400">
+                                        No subjects scheduled for this block.
+                                    </div>
+                                )
+                            ) : (
+                                <div className="h-48 flex flex-col items-center justify-center border-2 border-dashed border-blue-100 rounded-xl bg-blue-50/30 text-center p-6">
+                                    <Icon name="grid" size={24} className="text-blue-300 mb-2"/>
+                                    <p className="text-xs font-semibold text-blue-600">No Section Assigned</p>
+                                    <p className="text-[11px] text-blue-400 mt-1">Select a Block Section on the left to instantly preview the student's curriculum.</p>
+                                </div>
+                            )}
                         </div>
                     </div>
-                    <div className="mb-4">
-                        <label className="block text-xs font-bold text-gray-500 mb-1">EMAIL ADDRESS</label>
-                        <input className="w-full border p-2 rounded-md" type="email" value={form.email || ''} onChange={e => setForm({...form, email: e.target.value})}/>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">ASSIGNED SECTION</label>
-                            <select className="w-full border p-2 rounded-md bg-white" value={form.section || ''} onChange={e => setForm({...form, section: e.target.value ? Number(e.target.value) : null})}>
-                                <option value="">None</option>
-                                {/* Updated sec.nm to sec.name */}
-                                {sections.map(sec => <option key={sec.id} value={sec.id}>{sec.name}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">ENROLLMENT STATUS</label>
-                            {/* 3. Dropdown mapped directly to Django's 4 stages */}
-                            <select 
-                                className="w-full border p-2 rounded-md bg-white" 
-                                value={form.enrollment_status || 'ADVISING'} 
-                                onChange={e => setForm({...form, enrollment_status: e.target.value as any})}
-                            >
-                                <option value="ADVISING">Advising (Pending)</option>
-                                <option value="ASSESSED">Assessed</option>
-                                <option value="PAID">Paid</option>
-                                <option value="ENROLLED">Officially Enrolled</option>
-                            </select>
-                        </div>
-                    </div>
-                    {!form.id && (
-                        <div className="mb-2">
-                            <label className="block text-xs font-bold text-gray-500 mb-1">PASSWORD</label>
-                            <input className="w-full border p-2 rounded-md" type="password" placeholder="Default Account Password" value={password} onChange={e => setPassword(e.target.value)}/>
-                        </div>
-                    )}
                 </Modal>
             )}
 
-            {/* Layout Wrapper Elements */}
             <div className="flex gap-4 mb-4 items-center justify-between">
                 <div className="relative flex-1 max-w-sm">
-                    <span className="absolute left-3 top-3 text-gray-400"><Icon name="search" size={14}/></span>
-                    <input className="w-full pl-9 pr-4 py-2 border rounded-md bg-white outline-none" placeholder="Search records..." value={search} onChange={e => setSearch(e.target.value)}/>
+                    <span className="absolute left-3 top-2.5 text-gray-400"><Icon name="search" size={14}/></span>
+                    <input className="w-full pl-9 pr-4 py-2 border rounded-lg bg-white outline-none text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition" placeholder="Search records..." value={search} onChange={e => setSearch(e.target.value)}/>
                 </div>
-                <button className="flex items-center gap-2 bg-ustp-blue text-white px-4 py-2 rounded-md font-medium" onClick={openNew}>
+                <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-blue-700 transition shadow-sm" onClick={openNew}>
                     <Icon name="plus" size={14}/> Add Student
                 </button>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-g200 overflow-hidden">
-                <table className="w-full text-left border-collapse">
-                    <thead>
-                        <tr className="bg-g50 text-gray-500 text-xs font-bold border-b border-g200">
-                            <th className="p-4">STUDENT</th>
-                            <th className="p-4">CONTACT</th>
-                            <th className="p-4">SECTION</th>
-                            <th className="p-4">STATUS</th>
-                            <th className="p-4 text-right">ACTIONS</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredStudents.map(s => {
-                            const currentSec = sections.find(x => x.id === s.section);
-                            const initials = `${s.first_name?.[0] || ''}${s.last_name?.[0] || ''}` || '?';
-                            
-                            return (
-                                <tr key={s.id} className="border-b border-g100 hover:bg-g50 transition">
-                                    <td className="p-4 flex items-center gap-3">
-                                        <Avatar init={initials} size={32}/>
-                                        <div>
-                                            <div className="font-semibold text-gray-800">{s.last_name || 'N/A'}, {s.first_name || 'N/A'}</div>
-                                            <div className="text-xs text-gray-400">ID: {s.id}</div>
-                                        </div>
-                                    </td>
-                                    <td className="p-4 text-sm text-gray-600">{s.email}</td>
-                                    <td className="p-4">
-                                        {/* Updated currentSec.nm to currentSec.name */}
-                                        {currentSec ? <span className="px-2 py-1 bg-ustp-blue-light text-ustp-blue rounded text-xs font-bold">{currentSec.name}</span> : <span className="text-gray-400 text-xs">Unassigned</span>}
-                                    </td>
-                                    <td className="p-4">
-                                        {/* 4. Table UI updated to reflect the 4 new stages */}
-                                        <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                                            s.enrollment_status === 'ENROLLED' ? 'bg-green-100 text-green-700' : 
-                                            s.enrollment_status === 'PAID' ? 'bg-blue-100 text-blue-700' :
-                                            s.enrollment_status === 'ASSESSED' ? 'bg-purple-100 text-purple-700' :
-                                            'bg-yellow-100 text-yellow-700'
-                                        }`}>
-                                            {s.enrollment_status || 'ADVISING'}
-                                        </span>
-                                    </td>
-                                    <td className="p-4 text-right space-x-2">
-                                        <button className="p-1 border rounded hover:bg-g100 text-gray-600" onClick={() => openEdit(s)}><Icon name="edit" size={14}/></button>
-                                        <button className="p-1 border rounded hover:bg-red-50 text-red-600 border-red-200" onClick={() => setConfirmDeleteId(s.id!)}><Icon name="trash" size={14}/></button>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
+                <div className="overflow-y-auto overflow-x-hidden max-h-[65vh]">
+                    <table className="w-full text-left border-collapse table-auto">
+                        <thead className="sticky top-0 bg-gray-50 z-10 shadow-sm">
+                            <tr className="text-gray-500 text-[11px] uppercase tracking-wider font-bold border-b border-gray-200">
+                                <th className="p-4">Student</th>
+                                <th className="p-4">Contact</th>
+                                <th className="p-4">Section</th>
+                                <th className="p-4">Status</th>
+                                <th className="p-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredStudents.map(s => {
+                                const currentSec = sections.find(x => x.id === s.section);
+                                const initials = `${s.first_name?.[0] || ''}${s.last_name?.[0] || ''}` || '?';
+                                
+                                return (
+                                    <tr key={s.id} className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition" onClick={() => openEdit(s)}>
+                                        <td className="p-4 flex items-center gap-3">
+                                            <Avatar init={initials} size={36}/>
+                                            <div className="min-w-0">
+                                                <div className="font-bold text-gray-800 text-sm truncate">{s.last_name || 'N/A'}, {s.first_name || 'N/A'}</div>
+                                                <div className="text-[11px] text-gray-400 font-medium">ID: {s.id}</div>
+                                            </div>
+                                        </td>
+                                        <td className="p-4 text-sm text-gray-600 font-medium break-all">{s.email}</td>
+                                        <td className="p-4">
+                                            {currentSec ? <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded text-[11px] font-bold border border-blue-100 whitespace-normal">{currentSec.name}</span> : <span className="text-gray-400 text-xs font-semibold italic">Unassigned</span>}
+                                        </td>
+                                        <td className="p-4">
+                                            <span className={`px-2.5 py-1 rounded text-[11px] font-bold tracking-wide ${
+                                                s.enrollment_status === 'ENROLLED' ? 'bg-emerald-100 text-emerald-700' : 
+                                                s.enrollment_status === 'PAID' ? 'bg-blue-100 text-blue-700' :
+                                                s.enrollment_status === 'ASSESSED' ? 'bg-purple-100 text-purple-700' :
+                                                'bg-yellow-100 text-yellow-700'
+                                            }`}>
+                                                {s.enrollment_status || 'ADVISING'}
+                                            </span>
+                                        </td>
+                                        <td className="p-4 text-right space-x-2 whitespace-nowrap">
+                                            <button className="p-2 border border-gray-200 rounded-lg hover:bg-white text-gray-500 shadow-sm transition" onClick={(e) => { e.stopPropagation(); openEdit(s); }}><Icon name="edit" size={14}/></button>
+                                            <button className="p-2 border border-red-100 rounded-lg bg-red-50 hover:bg-red-600 text-red-600 hover:text-white shadow-sm transition" onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(s.id!); }}><Icon name="trash" size={14}/></button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                            {filteredStudents.length === 0 && (
+                                <tr>
+                                    <td colSpan={5} className="p-10 text-center text-gray-400 font-medium text-sm">
+                                        No students found.
                                     </td>
                                 </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </>
     );

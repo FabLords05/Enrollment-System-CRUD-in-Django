@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // 1. Updated baseURL to your computer's IP
 const api = axios.create({
-    baseURL: 'http://192.168.1.32:8000/api/', 
+    baseURL: 'http://localhost:8000/api/', 
     headers: {
         'Content-Type': 'application/json',
     },
@@ -33,7 +33,7 @@ api.interceptors.response.use(
             if (refreshToken) {
                 try {
                     // 2. Updated the token refresh URL to your computer's IP
-                    const response = await axios.post('http://192.168.1.32:8000/api/token/refresh/', {
+                    const response = await axios.post('http://localhost:8000/api/token/refresh/', {
                         refresh: refreshToken
                     });
                     localStorage.setItem('access_token', response.data.access);
