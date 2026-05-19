@@ -24,12 +24,10 @@ const COLORS = [
 
 interface SubjectResponse {
   id: number;
-  nm: string;
-  days: string;
-  st: string;
-  et: string;
-  room: string;
-  secId: number;
+  code?: string;
+  title?: string;
+  name?: string;
+  units?: number;
 }
 
 interface ScheduleEntry {
@@ -43,12 +41,23 @@ interface ScheduleEntry {
 }
 
 function timeStrToDecimal(timeStr: string): number {
-  if (!timeStr) return 7; 
-  const [time, period] = timeStr.trim().split(' ');
-  if (!time) return 7;
-  let [hours, minutes] = time.split(':').map(Number);
-  if (period?.toUpperCase() === 'PM' && hours !== 12) hours += 12;
-  if (period?.toUpperCase() === 'AM' && hours === 12) hours = 0;
+  if (!timeStr) return GRID_START;
+  const t = timeStr.trim();
+  // Handle formats like '08:30:00' or '08:30' or '8:30 AM'
+  // If contains AM/PM
+  if (/[APMapm]/.test(t)) {
+    const parts = t.split(' ');
+    const time = parts[0];
+    const period = parts[1];
+    let [hours, minutes] = time.split(':').map(Number);
+    if (period?.toUpperCase() === 'PM' && hours !== 12) hours += 12;
+    if (period?.toUpperCase() === 'AM' && hours === 12) hours = 0;
+    return hours + (minutes / 60);
+  }
+  // 24-hour HH:MM(:SS)
+  const [hoursStr, minutesStr] = t.split(':');
+  const hours = parseInt(hoursStr || '0', 10);
+  const minutes = parseInt((minutesStr || '0').slice(0,2), 10) || 0;
   return hours + (minutes / 60);
 }
 
@@ -81,30 +90,31 @@ export default function StudentSchedulePage() {
 
   const fetchSchedule = async () => {
     try {
-      const [studentsRes, subjectsRes] = await Promise.all([
+      const [studentsRes, offeringsRes, subjectsRes] = await Promise.all([
         api.get('students/'),
+        api.get('offerings/'),
         api.get<SubjectResponse[]>('subjects/')
       ]);
 
       const myData = studentsRes.data.find((s: any) => s.email?.toLowerCase() === user?.email?.toLowerCase());
 
       if (myData && myData.section) {
-        const mySectionSubjects = subjectsRes.data.filter(subj => subj.secId === myData.section);
-        
-        const mappedSchedule = mySectionSubjects.map((subj, index) => {
-          const parts = subj.nm.split(' - ');
-          const code = parts[0];
-          const name = parts[1] || subj.nm;
-          
+        const mySectionOfferings = offeringsRes.data.filter((off: any) => off.section === myData.section);
+
+        const mappedSchedule = mySectionOfferings.map((off: any, index: number) => {
+          const subj = subjectsRes.data.find((s: any) => s.id === off.subject);
+          const code = off.subject_code || subj?.code || `SUBJ-${off.subject}`;
+          const name = off.subject_title || subj?.title || subj?.name || 'Untitled Subject';
+
           return {
             code,
             name,
-            days: parseDays(subj.days),
-            startHour: timeStrToDecimal(subj.st),
-            endHour: timeStrToDecimal(subj.et),
-            room: subj.room || 'TBA',
+            days: parseDays(off.days),
+            startHour: timeStrToDecimal(off.start_time),
+            endHour: timeStrToDecimal(off.end_time),
+            room: off.room || 'TBA',
             color: COLORS[index % COLORS.length]
-          };
+          } as ScheduleEntry;
         });
         setSchedule(mappedSchedule);
       } else {

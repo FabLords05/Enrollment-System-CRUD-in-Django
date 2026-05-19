@@ -24,10 +24,32 @@ interface Section {
   name: string;
 }
 
-interface Subject {
+interface SubjectMaster {
   id: number;
-  nm: string;
-  secId: number;
+  code: string;
+  title?: string;
+  name?: string;
+  units?: number;
+}
+
+interface Offering {
+  id: number;
+  subject: number;
+  subject_title?: string;
+  subject_code?: string;
+  subject_units?: number;
+  section: number;
+  days?: string;
+  start_time?: string;
+  end_time?: string;
+  room?: string;
+  instructor?: number | null;
+}
+
+interface StudentDashboardSubject {
+  id: number;
+  code: string;
+  title: string;
   units: number;
   instId: number | null;
   days: string;
@@ -35,7 +57,8 @@ interface Subject {
 
 interface Instructor {
   id: number;
-  nm: string;
+  name?: string;
+  nm?: string;
 }
 
 export default function StudentDashboardPage() {
@@ -45,7 +68,7 @@ export default function StudentDashboardPage() {
   // States to hold our fetched data
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [sectionName, setSectionName] = useState('Unassigned');
-  const [mySubjects, setMySubjects] = useState<Subject[]>([]);
+  const [mySubjects, setMySubjects] = useState<StudentDashboardSubject[]>([]);
   const [instructors, setInstructors] = useState<Instructor[]>([]);
 
   // Calculated Stats States
@@ -62,17 +85,16 @@ export default function StudentDashboardPage() {
   const fetchDashboardData = async () => {
     try {
       // 1. Fetch all required tables concurrently
-      const [studentsRes, sectionsRes, subjectsRes, instRes] = await Promise.all([
+      const [studentsRes, sectionsRes, offeringsRes, subjectsRes, instRes] = await Promise.all([
         api.get<StudentProfile[]>('students/'),
         api.get<Section[]>('sections/'),
-        api.get<Subject[]>('subjects/'),
+        api.get<Offering[]>('offerings/'),
+        api.get<SubjectMaster[]>('subjects/'),
         api.get<Instructor[]>('instructors/')
       ]);
 
       setInstructors(instRes.data);
-console.log("Who React thinks is logged in:", user);
-console.log("The student data from Django:", studentsRes.data);
-      
+
       // 2. Identify the logged-in student
       const myData = studentsRes.data.find(s => s.email?.toLowerCase() === user?.email?.toLowerCase());
       if (!myData) {
@@ -80,34 +102,44 @@ console.log("The student data from Django:", studentsRes.data);
         return;
       }
       setProfile(myData);
+
       // 3. Resolve Section Name
       if (myData.section) {
         const sec = sectionsRes.data.find(s => s.id === myData.section);
         if (sec) setSectionName(sec.name);
       }
-      
 
-      // 4. Resolve Subjects & Units
-      const enrolledSubjects = subjectsRes.data.filter(sub => sub.secId === myData.section);
+      // 4. Resolve Offerings linked to the student's section
+      const sectionOfferings = offeringsRes.data.filter(off => off.section === myData.section);
+      const enrolledSubjects = sectionOfferings.map(off => {
+        const subj = subjectsRes.data.find(s => s.id === off.subject);
+        return {
+          id: off.id,
+          code: off.subject_code || subj?.code || `SUBJ-${off.subject}`,
+          title: off.subject_title || subj?.title || subj?.name || 'Untitled Subject',
+          units: off.subject_units ?? subj?.units ?? 0,
+          instId: off.instructor ?? null,
+          days: off.days || ''
+        };
+      });
       setMySubjects(enrolledSubjects);
-      
+
       const units = enrolledSubjects.reduce((sum, sub) => sum + sub.units, 0);
       setTotalUnits(units);
 
       // 5. Calculate Financial Balance
-      // (If status is ASSESSED, calculate balance based on units * rate + fixed fees. Otherwise 0)
       if (myData.enrollment_status === 'ASSESSED') {
         const tuition = units * 400;
         const fixedFees = 1500 + 1200 + 350 + 500 + 500; // Misc, Lab, NSTP, Fund, Reg
         setOutstandingBalance(tuition + fixedFees);
       } else {
-        setOutstandingBalance(0); // If ADVISING (not assessed yet), or PAID/ENROLLED (already paid)
+        setOutstandingBalance(0);
       }
 
       // 6. Calculate Unique Days active in schedule
-      const activeDays = new Set();
+      const activeDays = new Set<string>();
       enrolledSubjects.forEach(s => {
-        const d = s.days.toUpperCase();
+        const d = (s.days || '').toUpperCase();
         if (d.includes('M')) activeDays.add('Mon');
         if (d.includes('TUE') || (d.includes('T') && !d.includes('TH'))) activeDays.add('Tue');
         if (d.includes('W')) activeDays.add('Wed');
@@ -134,7 +166,7 @@ console.log("The student data from Django:", studentsRes.data);
 
   // Formatting helpers
   const fmtBalance = `₱${outstandingBalance.toLocaleString()}`;
-  const getInstructorName = (id: number | null) => instructors.find(i => i.id === id)?.nm || 'TBA';
+  const getInstructorName = (id: number | null) => instructors.find(i => i.id === id)?.name || instructors.find(i => i.id === id)?.nm || 'TBA';
   const firstName = profile.first_name || 'Student';
   
   // Status Pill color logic
@@ -215,20 +247,14 @@ console.log("The student data from Django:", studentsRes.data);
               </tr>
             </thead>
             <tbody>
-              {mySubjects.slice(0, 4).map((s) => {
-                const parts = s.nm.split(' - ');
-                const code = parts[0];
-                const name = parts[1] || s.nm;
-
-                return (
-                  <tr key={s.id} className="border-t border-gray-100 hover:bg-gray-50 transition-colors">
-                    <td className="px-5 py-3 font-mono text-[12px] text-ustpBlue font-bold">{code}</td>
-                    <td className="px-5 py-3 text-gray-700">{name}</td>
-                    <td className="px-5 py-3 text-gray-500">{s.units}</td>
-                    <td className="px-5 py-3 text-gray-500">{getInstructorName(s.instId)}</td>
-                  </tr>
-                );
-              })}
+              {mySubjects.slice(0, 4).map((s) => (
+                <tr key={s.id} className="border-t border-gray-100 hover:bg-gray-50 transition-colors">
+                  <td className="px-5 py-3 font-mono text-[12px] text-ustpBlue font-bold">{s.code}</td>
+                  <td className="px-5 py-3 text-gray-700">{s.title}</td>
+                  <td className="px-5 py-3 text-gray-500">{s.units}</td>
+                  <td className="px-5 py-3 text-gray-500">{getInstructorName(s.instId)}</td>
+                </tr>
+              ))}
               {mySubjects.length === 0 && (
                 <tr className="border-t border-gray-100 text-[12px] text-gray-400">
                   <td colSpan={4} className="px-5 py-6 text-center italic">No subjects assigned yet. Waiting for Registrar.</td>

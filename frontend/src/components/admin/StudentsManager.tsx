@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import api from '../../api/axiosSetup';
 import Icon from '../ui/Icon';
@@ -16,6 +16,7 @@ interface Student {
     address?: string;
     phone?: string;
     section?: number | null;
+    program_enrolled?: number | null;
     enrollment_status: 'ADVISING' | 'ASSESSED' | 'PAID' | 'ENROLLED'; 
 }
 
@@ -24,20 +25,27 @@ interface Section {
     name: string; 
 }
 
-interface Subject {
+interface ClassOffering {
     id: number;
-    nm: string;
-    secId: number;
-    units: number;
+    subject: number;
+    subject_title: string;
+    subject_code: string;
+    subject_units: number;
+    section: number;
+    section_name: string;
+    instructor: number | null;
+    instructor_name?: string;
     days: string;
-    st: string;
-    et: string;
+    start_time: string;
+    end_time: string;
+    room: string;
 }
 
 export default function StudentsManager() {
     const [students, setStudents] = useState<Student[]>([]);
     const [sections, setSections] = useState<Section[]>([]);
-    const [subjects, setSubjects] = useState<Subject[]>([]);
+    const [courses, setCourses] = useState<{id:number; code:string; name:string;}[]>([]);
+    const [offerings, setOfferings] = useState<ClassOffering[]>([]);
     const [search, setSearch] = useState('');
     const [modalOpen, setModalOpen] = useState(false);
     const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
@@ -48,7 +56,8 @@ export default function StudentsManager() {
     useEffect(() => {
         fetchStudents();
         fetchSections();
-        fetchSubjects();
+        fetchOfferings();
+        fetchCourses();
     }, []);
 
     const fetchStudents = async () => {
@@ -69,23 +78,32 @@ export default function StudentsManager() {
         }
     };
 
-    const fetchSubjects = async () => {
+    const fetchOfferings = async () => {
         try {
-            const response = await api.get('subjects/');
-            setSubjects(response.data);
+            const response = await api.get('offerings/');
+            setOfferings(response.data);
         } catch (err) {
-            console.error("Failed to fetch subjects", err);
+            console.error("Failed to fetch offerings", err);
+        }
+    };
+
+    const fetchCourses = async () => {
+        try {
+            const response = await api.get('courses/');
+            setCourses(response.data);
+        } catch (err) {
+            console.error('Failed to fetch courses', err);
         }
     };
 
     const openNew = () => {
-        setForm({ id: null, email: '', first_name: '', last_name: '', enrollment_status: 'ADVISING' });
+        setForm({ id: null, email: '', first_name: '', last_name: '', enrollment_status: 'ADVISING', program_enrolled: null });
         setPassword('');
         setModalOpen(true);
     };
 
     const openEdit = (student: Student) => {
-        setForm(student);
+        setForm({ ...student });
         setModalOpen(true);
     };
 
@@ -129,10 +147,10 @@ export default function StudentsManager() {
         `${s.first_name || ''} ${s.last_name || ''} ${s.email || ''}`.toLowerCase().includes(search.toLowerCase())
     );
 
-    const assignedSubjects = form.section 
-        ? subjects.filter(sub => sub.secId === form.section) 
+    const assignedOfferings = form.section 
+        ? offerings.filter(off => off.section === form.section)
         : [];
-    const totalUnits = assignedSubjects.reduce((sum, sub) => sum + sub.units, 0);
+    const totalUnits = assignedOfferings.reduce((sum, off) => sum + (off.subject_units || 0), 0);
 
     return (
         <>
@@ -192,6 +210,19 @@ export default function StudentsManager() {
                                 </select>
                             </div>
                             <div>
+                                <label className="block text-[11px] font-bold text-gray-500 mb-1">PROGRAM</label>
+                                <select
+                                    className="w-full border border-gray-200 p-2 rounded-md bg-white text-sm outline-none focus:border-blue-500"
+                                    value={form.program_enrolled || ''}
+                                    onChange={e => setForm({...form, program_enrolled: e.target.value ? Number(e.target.value) : null})}
+                                >
+                                    <option value="">Unassigned</option>
+                                    {courses.map(c => (
+                                        <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
                                 <label className="block text-[11px] font-bold text-gray-500 mb-1 text-blue-600">ASSIGNED BLOCK SECTION</label>
                                 <select 
                                     className="w-full border-2 border-blue-100 p-2 rounded-md bg-blue-50/50 text-sm outline-none focus:border-blue-500 font-bold text-blue-800" 
@@ -214,7 +245,7 @@ export default function StudentsManager() {
                         <div>
                             <h3 className="text-[13px] font-extrabold text-gray-400 uppercase tracking-wider border-b pb-2 mb-4">Block Curriculum</h3>
                             {form.section ? (
-                                assignedSubjects.length > 0 ? (
+                                assignedOfferings.length > 0 ? (
                                     <div className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
                                         <table className="w-full text-left text-[12px]">
                                             <thead className="bg-gray-50 border-b border-gray-200">
@@ -225,11 +256,11 @@ export default function StudentsManager() {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {assignedSubjects.map(sub => (
-                                                    <tr key={sub.id} className="border-b border-gray-50 last:border-0">
-                                                        <td className="p-3 font-semibold text-gray-800">{sub.nm}</td>
-                                                        <td className="p-3 text-gray-500">{sub.days} {sub.st}</td>
-                                                        <td className="p-3 text-center font-bold text-blue-600">{sub.units}</td>
+                                                {assignedOfferings.map(off => (
+                                                    <tr key={off.id} className="border-b border-gray-50 last:border-0">
+                                                        <td className="p-3 font-semibold text-gray-800">{off.subject_title || off.subject_code}</td>
+                                                        <td className="p-3 text-gray-500">{off.days} {off.start_time} - {off.end_time}</td>
+                                                        <td className="p-3 text-center font-bold text-blue-600">{off.subject_units}</td>
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -281,6 +312,7 @@ export default function StudentsManager() {
                         <tbody>
                             {filteredStudents.map(s => {
                                 const currentSec = sections.find(x => x.id === s.section);
+                                const program = courses.find(c => c.id === s.program_enrolled);
                                 const initials = `${s.first_name?.[0] || ''}${s.last_name?.[0] || ''}` || '?';
                                 
                                 return (
@@ -289,7 +321,7 @@ export default function StudentsManager() {
                                             <Avatar init={initials} size={36}/>
                                             <div className="min-w-0">
                                                 <div className="font-bold text-gray-800 text-sm truncate">{s.last_name || 'N/A'}, {s.first_name || 'N/A'}</div>
-                                                <div className="text-[11px] text-gray-400 font-medium">ID: {s.id}</div>
+                                                <div className="text-[11px] text-gray-400 font-medium">ID: {s.id}{program ? ` · ${program.code}` : ''}</div>
                                             </div>
                                         </td>
                                         <td className="p-4 text-sm text-gray-600 font-medium break-all">{s.email}</td>

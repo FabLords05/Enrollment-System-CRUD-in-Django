@@ -4,40 +4,29 @@ import api from '../../api/axiosSetup';
 import Icon from '../ui/Icon';
 import Modal from '../ui/Modal';
 
-// 1. Hardened Domain Definitions
 interface Subject {
     id: number;
-    nm: string;
-    secId: number;
+    code: string;
+    name: string;
     units: number;
-    days: string;
-    st: string;
-    et: string;
-    instId: number | null;
-    room: string;
 }
 
-interface Section { id: number; name: string; } // Aligned with your updated Sections table schema
-interface Instructor { id: number; nm: string; }
+interface SubjectForm {
+    id: number | null;
+    code: string;
+    name: string;
+    units: number;
+}
 
 export default function SubjectsManager() {
     const [subjects, setSubjects] = useState<Subject[]>([]);
-    const [sections, setSections] = useState<Section[]>([]);
-    const [instructors, setInstructors] = useState<Instructor[]>([]);
-    const [filterSection, setFilterSection] = useState<string>('');
     const [modalOpen, setModalOpen] = useState(false);
-    
-    // Initialized with clear default structures to eliminate uncontrolled input crashes
-    const [form, setForm] = useState({
-        id: null as number | null,
-        nm: '',
-        secId: '' as number | '',
+    const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+    const [form, setForm] = useState<SubjectForm>({
+        id: null,
+        code: '',
+        name: '',
         units: 3,
-        days: '',
-        st: '',
-        et: '',
-        instId: '' as number | null | '',
-        room: ''
     });
 
     useEffect(() => {
@@ -46,159 +35,214 @@ export default function SubjectsManager() {
 
     const fetchData = async () => {
         try {
-            const [subRes, secRes, instRes] = await Promise.all([
-                api.get('subjects/'),
-                api.get('sections/'),
-                api.get('instructors/')
-            ]);
-            setSubjects(subRes.data);
-            setSections(secRes.data);
-            setInstructors(instRes.data);
+            const response = await api.get('subjects/');
+            setSubjects(response.data);
         } catch (err) {
-            console.error("Failed to fetch subject catalogs", err);
+            console.error('Failed to fetch subject catalog', err);
         }
     };
 
     const handleSave = async () => {
-        if (!form.nm || !form.secId) {
-            alert("Subject Title and Target Section are required fields.");
+        if (!form.code.trim() || !form.name.trim()) {
+            alert('Subject Code and Subject Title are required fields.');
             return;
         }
 
-        try {
-            const payload = {
-                ...form,
-                instId: form.instId === '' ? null : form.instId
-            };
+        const payload = {
+            code: form.code.trim(),
+            name: form.name.trim(),
+            units: form.units,
+        };
 
-            if (form.id) {
-                // Shifted to partial PATCH mutation handling
-                await api.patch(`subjects/${form.id}/`, payload);
+        try {
+            if (form.id !== null) {
+                try {
+                    await api.patch(`subjects/${form.id}/`, payload);
+                } catch (patchError) {
+                    if (axios.isAxiosError(patchError) && patchError.response?.status === 405) {
+                        await api.put(`subjects/${form.id}/`, payload);
+                    } else {
+                        throw patchError;
+                    }
+                }
             } else {
                 await api.post('subjects/', payload);
             }
             setModalOpen(false);
             fetchData();
         } catch (error) {
-            console.error("Error updates on subject catalogs", error);
+            console.error('Error saving subject catalog', error);
             if (axios.isAxiosError(error) && error.response) {
-                console.error("Django verification rejection payload:", error.response.data);
                 alert(`Backend Error: ${JSON.stringify(error.response.data)}`);
             } else {
-                alert("Failed to modify catalog record.");
+                alert('Failed to save the subject.');
             }
         }
     };
 
-    const filteredSubjects = filterSection 
-        ? subjects.filter(s => s.secId === Number(filterSection))
-        : subjects;
+    const openNew = () => {
+        setForm({ id: null, code: '', name: '', units: 3 });
+        setModalOpen(true);
+    };
+
+    const openEdit = (subject: Subject) => {
+        setForm({ id: subject.id, code: subject.code, name: subject.name, units: subject.units });
+        setModalOpen(true);
+    };
+
+    const handleDelete = async (id: number) => {
+        try {
+            await api.delete(`subjects/${id}/`);
+            setConfirmDeleteId(null);
+            fetchData();
+        } catch (error) {
+            console.error('Failed to delete subject catalog item', error);
+            alert('Unable to delete this subject.');
+        }
+    };
 
     return (
         <>
-            {modalOpen && (
-                <Modal 
-                    title={form.id ? "Modify Subject" : "Register Subject"} 
-                    onClose={() => setModalOpen(false)} 
+            {confirmDeleteId !== null && (
+                <Modal
+                    title="Confirm Delete"
+                    onClose={() => setConfirmDeleteId(null)}
                     footer={
                         <>
-                            <button className="px-4 py-2 border rounded-md text-[13px] font-semibold text-gray-600 hover:bg-gray-50 transition" onClick={() => setModalOpen(false)}>Cancel</button>
-                            <button className="px-4 py-2 bg-ustpBlue text-white rounded-md text-[13px] font-semibold hover:bg-blue-700 transition" onClick={handleSave}>Confirm</button>
+                            <button
+                                className="px-4 py-2 border border-gray-200 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 transition"
+                                onClick={() => setConfirmDeleteId(null)}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 transition"
+                                onClick={() => confirmDeleteId !== null && handleDelete(confirmDeleteId)}
+                            >
+                                Delete Subject
+                            </button>
                         </>
                     }
                 >
-                    <div className="mb-4">
-                        <label className="block text-xs font-bold text-gray-500 mb-1">SUBJECT TITLE</label>
-                        <input className="w-full border p-2 rounded-md text-sm outline-none focus:border-ustpBlue" value={form.nm} onChange={e => setForm({...form, nm: e.target.value})}/>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 mb-4">
+                    <p className="text-sm text-gray-600">Are you sure you want to delete this subject from the master catalog? This cannot be undone.</p>
+                </Modal>
+            )}
+
+            {modalOpen && (
+                <Modal
+                    title={form.id ? 'Edit Subject' : 'Add Subject'}
+                    onClose={() => setModalOpen(false)}
+                    footer={
+                        <>
+                            <button
+                                type="button"
+                                className="px-4 py-2 border border-gray-200 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 transition"
+                                onClick={() => setModalOpen(false)}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                className="px-4 py-2 bg-ustpBlue text-white rounded-md text-sm font-medium hover:bg-blue-700 transition"
+                                onClick={handleSave}
+                            >
+                                Save Subject
+                            </button>
+                        </>
+                    }
+                >
+                    <div className="space-y-4">
                         <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">TARGET SECTION</label>
-                            <select className="w-full border p-2 rounded-md bg-white text-sm outline-none focus:border-ustpBlue" value={form.secId} onChange={e => setForm({...form, secId: Number(e.target.value) || ''})}>
-                                <option value="">Select Section</option>
-                                {sections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                            </select>
+                            <label className="block text-xs font-bold text-gray-500 mb-1">SUBJECT CODE</label>
+                            <input
+                                type="text"
+                                className="w-full border border-gray-200 p-3 rounded-lg text-sm outline-none focus:border-ustpBlue"
+                                value={form.code}
+                                onChange={(e) => setForm({ ...form, code: e.target.value })}
+                                placeholder="IT 322"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1">SUBJECT TITLE / NAME</label>
+                            <input
+                                type="text"
+                                className="w-full border border-gray-200 p-3 rounded-lg text-sm outline-none focus:border-ustpBlue"
+                                value={form.name}
+                                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                                placeholder="Advanced Web Development"
+                            />
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-500 mb-1">UNITS LOAD</label>
-                            <input type="number" className="w-full border p-2 rounded-md text-sm outline-none focus:border-ustpBlue" value={form.units} onChange={e => setForm({...form, units: Number(e.target.value)})}/>
-                        </div>
-                    </div>
-                    <div className="mb-4">
-                        <label className="block text-xs font-bold text-gray-500 mb-1">WEEKDAYS SCHED</label>
-                        <input className="w-full border p-2 rounded-md text-sm outline-none focus:border-ustpBlue" placeholder="Mon & Wed" value={form.days} onChange={e => setForm({...form, days: e.target.value})}/>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">START TIME</label>
-                            <input className="w-full border p-2 rounded-md text-sm outline-none focus:border-ustpBlue" placeholder="08:00 AM" value={form.st} onChange={e => setForm({...form, st: e.target.value})}/>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">END TIME</label>
-                            <input className="w-full border p-2 rounded-md text-sm outline-none focus:border-ustpBlue" placeholder="10:00 AM" value={form.et} onChange={e => setForm({...form, et: e.target.value})}/>
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">INSTRUCTOR ASSIGNED</label>
-                            <select className="w-full border p-2 rounded-md bg-white text-sm outline-none focus:border-ustpBlue" value={form.instId ?? ''} onChange={e => setForm({...form, instId: e.target.value ? Number(e.target.value) : null})}>
-                                <option value="">TBA</option>
-                                {instructors.map(i => <option key={i.id} value={i.id}>{i.nm}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">ROOM LOCATION</label>
-                            <input className="w-full border p-2 rounded-md text-sm outline-none focus:border-ustpBlue" placeholder="Room 101" value={form.room} onChange={e => setForm({...form, room: e.target.value})}/>
+                            <input
+                                type="number"
+                                min={0}
+                                className="w-full border border-gray-200 p-3 rounded-lg text-sm outline-none focus:border-ustpBlue"
+                                value={form.units}
+                                onChange={(e) => setForm({ ...form, units: Number(e.target.value) })}
+                            />
                         </div>
                     </div>
                 </Modal>
             )}
 
-            <div className="flex gap-4 mb-4 items-center justify-between">
-                <select className="border p-2 rounded-md bg-white text-sm outline-none w-48 focus:border-ustpBlue" value={filterSection} onChange={e => setFilterSection(e.target.value)}>
-                    <option value="">All Academic Sections</option>
-                    {sections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-                <button className="flex items-center gap-2 bg-ustpBlue text-white px-4 py-2 rounded-md font-medium text-sm hover:bg-blue-700 transition" onClick={() => { setForm({ id: null, nm: '', secId: '', units: 3, days: '', st: '', et: '', instId: '', room: '' }); setModalOpen(true); }}>
-                    {/* Fixed Icon parameter properties mapping context */}
-                    <Icon name="plus" size={14}/> Add Subject
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
+                <div>
+                    <h2 className="text-lg font-bold text-gray-900">Master Subject Catalog</h2>
+                    <p className="text-sm text-gray-500">Manage the subject master list used by the scheduling engine.</p>
+                </div>
+                <button
+                    type="button"
+                    className="inline-flex items-center gap-2 bg-ustpBlue text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition"
+                    onClick={openNew}
+                >
+                    <Icon name="plus" size={14} /> Add Subject
                 </button>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-g200 overflow-hidden">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
+                    <table className="w-full min-w-[600px] text-left border-collapse">
                         <thead>
-                            <tr className="bg-g50 text-gray-500 text-xs font-bold border-b border-g200">
-                                <th className="p-4">SUBJECT CODE/NAME</th>
-                                <th className="p-4">SECTION</th>
-                                <th className="p-4">DAYS</th>
-                                <th className="p-4">TIME WINDOW</th>
-                                <th className="p-4">ROOM</th>
-                                <th className="p-4">INSTRUCTOR</th>
-                                <th className="p-4">UNITS</th>
-                                <th className="p-4 text-right">ACTION</th>
+                            <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider font-semibold border-b border-gray-200">
+                                <th className="p-4">Subject Code</th>
+                                <th className="p-4">Subject Title</th>
+                                <th className="p-4 text-center">Units</th>
+                                <th className="p-4 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredSubjects.map(s => {
-                                const sec = sections.find(x => x.id === s.secId);
-                                const inst = instructors.find(i => i.id === s.instId);
-                                return (
-                                    <tr key={s.id} className="border-b border-g100 hover:bg-g50 transition text-sm">
-                                        <td className="p-4 font-semibold text-gray-800">{s.nm}</td>
-                                        <td className="p-4"><span className="px-2 py-1 bg-g100 text-gray-700 rounded text-xs font-bold">{sec?.name || '—'}</span></td>
-                                        <td className="p-4 text-gray-600">{s.days}</td>
-                                        <td className="p-4 text-gray-600 whitespace-nowrap">{s.st} – {s.et}</td>
-                                        <td className="p-4 text-gray-600">{s.room}</td>
-                                        <td className="p-4 text-gray-700">{inst?.nm || <span className="text-gray-400 italic">TBA</span>}</td>
-                                        <td className="p-4"><span className="px-2 py-0.5 bg-ustpGold/10 text-ustpGold rounded text-xs font-bold">{s.units}u</span></td>
-                                        <td className="p-4 text-right">
-                                            <button className="p-1 border rounded hover:bg-g100 text-gray-600" onClick={() => { setForm({ ...s, instId: s.instId ?? '' }); setModalOpen(true); }}><Icon name="edit" size={14}/></button>
+                            {subjects.length === 0 ? (
+                                <tr>
+                                    <td colSpan={4} className="p-10 text-center text-gray-400 text-sm">
+                                        No master subjects found. Click "Add Subject" to create one.
+                                    </td>
+                                </tr>
+                            ) : (
+                                subjects.map((subject) => (
+                                    <tr key={subject.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
+                                        <td className="p-4 font-medium text-gray-800">{subject.code}</td>
+                                        <td className="p-4 text-gray-700">{subject.name}</td>
+                                        <td className="p-4 text-center text-gray-700">{subject.units}</td>
+                                        <td className="p-4 text-right space-x-2 whitespace-nowrap">
+                                            <button
+                                                type="button"
+                                                className="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition"
+                                                onClick={() => openEdit(subject)}
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="px-3 py-2 border border-red-100 rounded-lg bg-red-50 text-red-600 text-sm hover:bg-red-600 hover:text-white transition"
+                                                onClick={() => setConfirmDeleteId(subject.id)}
+                                            >
+                                                Delete
+                                            </button>
                                         </td>
                                     </tr>
-                                );
-                            })}
+                                ))
+                            )}
                         </tbody>
                     </table>
                 </div>

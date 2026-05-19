@@ -1,29 +1,27 @@
-import React from 'react';
 import Avatar from '../ui/Avatar';
 import Icon from '../ui/Icon';
-import RequestsManager from '../admin/RequestsManager';
 
 interface AdminShellProps {
   onLogout: () => void;
-  children: React.ReactNode; 
+  children: React.ReactNode;
   activePage: string;
   setActivePage: (page: string) => void;
   pendingRequestsCount?: number;
 }
 
-export function AdminShell({ 
-  onLogout, 
-  children, 
-  activePage, 
-  setActivePage, 
-  pendingRequestsCount = 0 
+export function AdminShell({
+  onLogout,
+  children,
+  activePage,
+  setActivePage,
+  pendingRequestsCount = 0,
 }: AdminShellProps) {
-  
   const nav = [
     { id: 'dashboard', label: 'Dashboard', icon: 'home' },
     { id: 'students', label: 'Students', icon: 'users' },
     { id: 'sections', label: 'Sections', icon: 'grid' },
     { id: 'subjects', label: 'Subjects', icon: 'book' },
+    { id: 'courses', label: 'Courses', icon: 'book' },
     { id: 'instructors', label: 'Instructors', icon: 'users' },
     { id: 'schedules', label: 'Schedules', icon: 'cal' },
     { id: 'requests', label: 'Change Requests', icon: 'doc', badge: pendingRequestsCount },
@@ -31,9 +29,7 @@ export function AdminShell({
 
   return (
     <div className="flex min-h-screen bg-gray-50 text-gray-800 font-sans">
-      
       <div className="w-[236px] bg-ustpDarkBlue text-white flex flex-col fixed inset-y-0 left-0 z-50">
-        
         <div className="pt-4 px-5 pb-3 border-b border-white/10">
           <div className="bg-ustpGold text-ustpDarkBlue font-bold text-[10px] px-2 py-0.5 rounded inline-block mb-1 tracking-wide">
             EduTrack Portal
@@ -46,12 +42,12 @@ export function AdminShell({
           <div className="px-4 py-2 text-[9px] font-semibold text-white/30 tracking-wider uppercase">
             Management
           </div>
-          {nav.map(n => (
-            <div 
-              key={n.id} 
+          {nav.map((n) => (
+            <div
+              key={n.id}
               className={`flex items-center gap-2.5 py-2.5 px-4 cursor-pointer text-[13px] transition-all border-l-[3px] relative ${
-                activePage === n.id 
-                  ? 'bg-ustpGold/15 text-ustpGold border-ustpGold' 
+                activePage === n.id
+                  ? 'bg-ustpGold/15 text-ustpGold border-ustpGold'
                   : 'text-white/70 border-transparent hover:bg-white/5 hover:text-white'
               }`}
               onClick={() => setActivePage(n.id)}
@@ -71,7 +67,7 @@ export function AdminShell({
             <div className="text-[11px] font-semibold text-white truncate">Administrator</div>
             <div className="text-[10px] text-white/40">Full Access</div>
           </div>
-          <button 
+          <button
             onClick={onLogout}
             className="text-white/45 hover:text-ustpGold p-1 rounded transition-colors"
           >
@@ -81,10 +77,9 @@ export function AdminShell({
       </div>
 
       <div className="ml-[236px] flex-1 flex flex-col min-w-0">
-        
         <div className="bg-white border-b border-gray-200 py-3 px-6 flex items-center justify-between sticky top-0 z-40">
           <div className="text-[17px] font-extrabold text-ustpDarkBlue">
-            {nav.find(n => n.id === activePage)?.label || 'Dashboard'}
+            {nav.find((n) => n.id === activePage)?.label || 'Dashboard'}
           </div>
           <div className="flex items-center gap-2.5">
             <span className="text-[11px] bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full font-semibold">
@@ -94,11 +89,8 @@ export function AdminShell({
           </div>
         </div>
 
-        <div className="p-6 flex-1">
-          {children}
-        </div>
+        <div className="p-6 flex-1">{children}</div>
       </div>
-      
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../../api/axiosSetup';
 import Icon from '../ui/Icon';
 import Avatar from '../ui/Avatar';
@@ -16,12 +16,16 @@ interface Section {
 // Interfaces for relational data dropdowns
 interface Term { id: number; name: string; }
 interface Course { id: number; code: string; name: string; }
-interface Subject { id: number; nm: string; secId: number; units: number; days: string; st: string; et: string; room: string; }
+interface Subject { id: number; code: string; title?: string; name?: string; units?: number }
+interface ClassOffering { id: number; subject: number; subject_title?: string; subject_code?: string; subject_units?: number; section: number; days: string; start_time: string; end_time: string; room?: string; instructor?: number | null; instructor_name?: string }
 interface Student { id: number; first_name: string; last_name: string; email: string; section?: number | null; enrollment_status: string; }
 
 export default function SectionsManager() {
   const [sections, setSections] = useState<Section[]>([]);
+  // subjects catalog is not used directly here; section curriculum comes from offerings
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [offerings, setOfferings] = useState<ClassOffering[]>([]);
+  const [selectedSectionForSubjects, setSelectedSectionForSubjects] = useState<Section | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [expandedSections, setExpandedSections] = useState<number[]>([]);
   const [selectedSectionForRoster, setSelectedSectionForRoster] = useState<Section | null>(null);
@@ -44,6 +48,7 @@ export default function SectionsManager() {
 
   useEffect(() => {
     fetchSections();
+    fetchOfferings();
     fetchSubjects();
     fetchStudents();
     fetchDependencies();
@@ -63,7 +68,18 @@ export default function SectionsManager() {
       const response = await api.get('subjects/');
       setSubjects(response.data);
     } catch (error) {
-      console.error("Failed to fetch subjects", error);
+      console.error('Failed to fetch subjects', error);
+    }
+  };
+
+
+
+  const fetchOfferings = async () => {
+    try {
+      const response = await api.get('offerings/');
+      setOfferings(response.data);
+    } catch (error) {
+      console.error('Failed to fetch offerings', error);
     }
   };
 
@@ -188,8 +204,8 @@ export default function SectionsManager() {
             const sectionStudents = students.filter(stud => stud.section === sec.id);
             const enrolledCount = sectionStudents.length;
             const capacityPct = sec.capacity > 0 ? Math.round((enrolledCount / sec.capacity) * 100) : 0;
-            const sectionSubjects = subjects.filter(sub => sub.secId === sec.id);
-            const totalUnits = sectionSubjects.reduce((sum, sub) => sum + sub.units, 0);
+            const sectionOfferings = offerings.filter(o => o.section === sec.id);
+            const totalUnits = sectionOfferings.reduce((sum, off) => sum + (off.subject_units || 0), 0);
             const isExpanded = expandedSections.includes(sec.id);
 
             return (
@@ -236,7 +252,7 @@ export default function SectionsManager() {
                   <div className="flex items-center justify-between gap-3 mb-3">
                     <div>
                       <div className="text-sm font-semibold text-ustpDarkBlue">Section Overview</div>
-                      <div className="text-[11px] text-gray-500">{sectionSubjects.length} subject{sectionSubjects.length === 1 ? '' : 's'} · {totalUnits} unit{totalUnits === 1 ? '' : 's'} · {enrolledCount} / {sec.capacity} students</div>
+                      <div className="text-[11px] text-gray-500">{sectionOfferings.length} subject{sectionOfferings.length === 1 ? '' : 's'} · {totalUnits} unit{totalUnits === 1 ? '' : 's'} · {enrolledCount} / {sec.capacity} students</div>
                     </div>
                     <button 
                       onClick={() => toggleSectionExpansion(sec.id)}
@@ -252,26 +268,26 @@ export default function SectionsManager() {
                         <div className="flex items-center justify-between gap-3 mb-3">
                           <div>
                             <div className="text-sm font-semibold text-gray-800">Curriculum</div>
-                            <div className="text-[11px] text-gray-500">{sectionSubjects.length} subject{sectionSubjects.length === 1 ? '' : 's'} · {totalUnits} unit{totalUnits === 1 ? '' : 's'}</div>
+                            <div className="text-[11px] text-gray-500">{sectionOfferings.length} subject{sectionOfferings.length === 1 ? '' : 's'} · {totalUnits} unit{totalUnits === 1 ? '' : 's'}</div>
                           </div>
                         </div>
-                        {sectionSubjects.length === 0 ? (
+                        {sectionOfferings.length === 0 ? (
                           <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500">No subjects assigned to this section yet.</div>
                         ) : (
                           <div className="space-y-3">
-                            {sectionSubjects.map(sub => (
-                              <div key={sub.id} className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
+                            {sectionOfferings.map(off => (
+                              <div key={off.id} className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
                                 <div className="flex items-center justify-between gap-3">
                                   <div>
-                                    <div className="font-semibold text-gray-800">{sub.nm}</div>
-                                    <div className="text-[11px] text-gray-500 mt-1">{sub.days} · {sub.st}–{sub.et}</div>
+                                    <div className="font-semibold text-gray-800">{off.subject_title || off.subject_code || `Subject ${off.subject}`}</div>
+                                    <div className="text-[11px] text-gray-500 mt-1">{off.days} · {off.start_time}–{off.end_time}</div>
                                   </div>
                                   <div className="text-xs font-semibold text-gray-600 bg-gray-100 rounded-full px-3 py-1">
-                                    {sub.units} unit{sub.units === 1 ? '' : 's'}
+                                    {off.subject_units || 0} unit{(off.subject_units || 0) === 1 ? '' : 's'}
                                   </div>
                                 </div>
                                 <div className="mt-3 text-[11px] text-gray-500">
-                                  Room: <span className="font-semibold text-gray-700">{sub.room || 'TBA'}</span>
+                                  Room: <span className="font-semibold text-gray-700">{off.room || 'TBA'}</span>
                                 </div>
                               </div>
                             ))}
@@ -286,9 +302,15 @@ export default function SectionsManager() {
                 <div className="flex flex-wrap gap-2">
                   <button 
                     onClick={() => setSelectedSectionForRoster(sec)}
-                    className="flex-1 min-w-[160px] bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-ustpBlue py-2 rounded-lg text-[12px] font-semibold transition-colors flex items-center justify-center gap-2"
+                    className="flex-1 min-w-[140px] bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-ustpBlue py-2 rounded-lg text-[12px] font-semibold transition-colors flex items-center justify-center gap-2"
                   >
                     <Icon name="users" size={14} /> View Roster
+                  </button>
+                  <button
+                    onClick={() => setSelectedSectionForSubjects(sec)}
+                    className="flex-1 min-w-[140px] bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-ustpBlue py-2 rounded-lg text-[12px] font-semibold transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Icon name="book" size={14} /> View Subjects
                   </button>
                   <button 
                     onClick={() => handleEdit(sec)} 
@@ -354,6 +376,75 @@ export default function SectionsManager() {
                     );
                   })}
                 </div>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Subjects / Schedule Modal */}
+      {selectedSectionForSubjects && (
+        <Modal
+          maxWidth="max-w-[800px]"
+          title={`Schedule — ${selectedSectionForSubjects.name}`}
+          onClose={() => setSelectedSectionForSubjects(null)}
+          footer={
+            <div className="w-full flex items-center justify-between">
+              <div className="text-sm text-gray-600">Total Units: <span className="font-semibold text-gray-800">{
+                (() => {
+                  const sectionOfferings = offerings.filter(o => o.section === selectedSectionForSubjects.id);
+                  const total = sectionOfferings.reduce((sum, off) => sum + (off.subject_units ?? (subjects.find(s => s.id === off.subject)?.units ?? 0)), 0);
+                  return total;
+                })()
+              }</span></div>
+              <button
+                onClick={() => setSelectedSectionForSubjects(null)}
+                className="px-4 py-2 bg-ustpBlue text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          }
+        >
+          <div className="space-y-4">
+            <div className="text-sm font-semibold text-gray-700">Subjects assigned to {selectedSectionForSubjects.name}</div>
+            <div className="rounded-2xl border border-gray-200 bg-white max-h-[60vh] overflow-y-auto p-3">
+              {offerings.filter(o => o.section === selectedSectionForSubjects.id).length === 0 ? (
+                <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500">No offerings assigned to this section.</div>
+              ) : (
+                <table className="w-full text-left table-auto">
+                  <thead>
+                    <tr className="text-[12px] text-gray-500 border-b">
+                      <th className="px-3 py-2">Code</th>
+                      <th className="px-3 py-2">Subject</th>
+                      <th className="px-3 py-2">Days</th>
+                      <th className="px-3 py-2">Time</th>
+                      <th className="px-3 py-2">Room</th>
+                      <th className="px-3 py-2">Instructor</th>
+                      <th className="px-3 py-2 text-right">Units</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {offerings.filter(o => o.section === selectedSectionForSubjects.id).map(off => {
+                      const subj = subjects.find(s => s.id === off.subject);
+                      const code = off.subject_code || subj?.code || `ID ${off.subject}`;
+                      const title = off.subject_title || subj?.title || subj?.name || 'Untitled Subject';
+                      const units = off.subject_units ?? subj?.units ?? 0;
+                      const instructor = off.instructor_name || (off as any).instructor_name || 'TBA';
+                      return (
+                        <tr key={off.id} className="align-top border-b last:border-b-0">
+                          <td className="px-3 py-3 text-sm text-gray-700">{code}</td>
+                          <td className="px-3 py-3 text-sm text-gray-800">{title}</td>
+                          <td className="px-3 py-3 text-sm text-gray-600">{off.days}</td>
+                          <td className="px-3 py-3 text-sm text-gray-600">{off.start_time}–{off.end_time}</td>
+                          <td className="px-3 py-3 text-sm text-gray-600">{off.room || 'TBA'}</td>
+                          <td className="px-3 py-3 text-sm text-gray-600">{instructor}</td>
+                          <td className="px-3 py-3 text-sm text-right text-gray-700 font-semibold">{units}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               )}
             </div>
           </div>

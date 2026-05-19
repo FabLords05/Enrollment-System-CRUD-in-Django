@@ -7,13 +7,18 @@ import { COLORS } from '../../constants/colors';
 export default function StudentProfileScreen() {
   const auth = useContext(AuthContext);
   const [profile, setProfile] = useState<any>(null);
+  const [courses, setCourses] = useState<any[]>([]);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ first_name: '', last_name: '', phone: '' });
 
   useEffect(() => {
     (async () => {
-      const res = await api.get('students/');
-      const matched = res.data.find((s: any) => s.email?.toLowerCase() === auth?.user?.email?.toLowerCase());
+      const [studentsRes, coursesRes] = await Promise.all([
+        api.get('students/'),
+        api.get('courses/')
+      ]);
+      setCourses(coursesRes.data || []);
+      const matched = studentsRes.data.find((s: any) => s.email?.toLowerCase() === auth?.user?.email?.toLowerCase());
       if (matched) {
         setProfile(matched);
         setForm({ first_name: matched.first_name || '', last_name: matched.last_name || '', phone: matched.phone || '' });
@@ -29,6 +34,11 @@ export default function StudentProfileScreen() {
       Alert.alert("Success", "EduTrack profile records updated!");
     } catch (e) { Alert.alert("Error", "Failed synchronizing fields."); }
   };
+
+  const course = courses.find(c => c.id === Number(profile?.program_enrolled));
+  const courseLabel = course ? `${course.code} — ${course.name}` : 'Unassigned';
+  const studentIdValue = profile?.student_id?.trim();
+  const showPendingStudentId = !studentIdValue || /pending/i.test(studentIdValue);
 
   return (
     <ScrollView style={styles.container}>
@@ -48,7 +58,17 @@ export default function StudentProfileScreen() {
 
         <View style={styles.formGroup}>
           <Text style={styles.label}>Student Profile Code</Text>
-          <TextInput style={[styles.input, styles.disabled]} value={profile?.student_id || 'Pending'} editable={false} />
+          {showPendingStudentId ? (
+            <View style={styles.pendingBadge}>
+              <Text style={styles.pendingBadgeIcon}>⏳</Text>
+              <Text style={styles.pendingBadgeText}>Verification Pending</Text>
+            </View>
+          ) : (
+            <TextInput style={[styles.input, styles.disabled]} value={studentIdValue || ''} editable={false} />
+          )}
+          
+          <Text style={styles.label}>Program / Course</Text>
+          <TextInput style={[styles.input, styles.disabled]} value={courseLabel} editable={false} />
           
           <Text style={styles.label}>First Name</Text>
           <TextInput style={[styles.input, !editing && styles.disabled]} value={form.first_name} onChangeText={t => setForm({...form, first_name: t})} editable={editing} />
@@ -79,5 +99,8 @@ const styles = StyleSheet.create({
   formGroup: { marginTop: 12 },
   label: { fontSize: 10, fontWeight: '700', color: COLORS.textMuted, textTransform: 'uppercase', marginBottom: 4, marginTop: 10 },
   input: { borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, padding: 10, fontSize: 13, color: COLORS.textMain, backgroundColor: '#FFF' },
-  disabled: { backgroundColor: '#F3F4F6', color: COLORS.textMuted }
+  disabled: { backgroundColor: '#F3F4F6', color: COLORS.textMuted },
+  pendingBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 8, backgroundColor: '#FFFAEB', borderColor: '#FCD34D', borderWidth: 1, borderRadius: 8, marginBottom: 8 },
+  pendingBadgeIcon: { fontSize: 12, marginRight: 6, color: '#B45309' },
+  pendingBadgeText: { fontSize: 12, fontWeight: '700', color: '#B45309' }
 });

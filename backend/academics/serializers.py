@@ -34,6 +34,8 @@ class SubjectSerializer(serializers.ModelSerializer):
 
 class ClassOfferingSerializer(serializers.ModelSerializer):
     subject_title = serializers.CharField(source='subject.nm', read_only=True)
+    subject_code = serializers.CharField(source='subject.code', read_only=True)
+    subject_units = serializers.IntegerField(source='subject.units', read_only=True)
     section_name = serializers.CharField(source='section.name', read_only=True)
     instructor_name = serializers.CharField(source='instructor.nm', read_only=True)
 
@@ -43,6 +45,8 @@ class ClassOfferingSerializer(serializers.ModelSerializer):
             'id',
             'subject',
             'subject_title',
+            'subject_code',
+            'subject_units',
             'section',
             'section_name',
             'instructor',

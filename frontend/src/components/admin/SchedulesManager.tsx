@@ -4,10 +4,36 @@ import api from '../../api/axiosSetup';
 import Icon from '../ui/Icon';
 import Modal from '../ui/Modal';
 
+type EntityId = number | string | { id: number } | null;
+
 interface Section { id: number; name: string; }
 interface Instructor { id: number; nm: string; }
 interface SubjectCatalog { id: number; code: string; name: string; units: number; nm?: string; }
-interface ClassOffering { id: number | null; subject: number | ''; section: number | ''; instructor: number | ''; days: string; start_time: string; end_time: string; room: string; }
+interface ClassOffering {
+    id: number | null;
+    subject: EntityId;
+    section: EntityId;
+    instructor: EntityId;
+    subject_title?: string;
+    subject_code?: string;
+    section_name?: string;
+    instructor_name?: string;
+    days: string;
+    start_time: string;
+    end_time: string;
+    room: string;
+}
+
+interface ClassOfferingForm {
+    id: number | null;
+    subject: number | string;
+    section: number | string;
+    instructor: number | string;
+    days: string;
+    start_time: string;
+    end_time: string;
+    room: string;
+}
 
 const TIME_OPTIONS = [
     '07:00 AM', '07:30 AM', '08:00 AM', '08:30 AM', '09:00 AM', '09:30 AM',
@@ -15,6 +41,17 @@ const TIME_OPTIONS = [
     '01:00 PM', '01:30 PM', '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM',
     '04:00 PM', '04:30 PM', '05:00 PM', '05:30 PM', '06:00 PM', '06:30 PM',
     '07:00 PM', '07:30 PM', '08:00 PM', '08:30 PM', '09:00 PM'
+];
+
+const DAYS_OPTIONS = [
+    'MWF',
+    'TTh',
+    'MTh',
+    'MW',
+    'TThS',
+    'WF',
+    'Daily',
+    'Once',
 ];
 
 export default function SchedulesManager() {
@@ -26,7 +63,7 @@ export default function SchedulesManager() {
 
     const [modalOpen, setModalOpen] = useState(false);
     const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
-    const [form, setForm] = useState<ClassOffering>({
+    const [form, setForm] = useState<ClassOfferingForm>({
         id: null,
         subject: '',
         section: '',
@@ -58,6 +95,16 @@ export default function SchedulesManager() {
         }
     };
 
+    const parseEntityId = (value: EntityId): number | '' => {
+        if (typeof value === 'number') return value;
+        if (typeof value === 'string') {
+            const parsed = Number(value);
+            return Number.isInteger(parsed) ? parsed : '';
+        }
+        if (value && typeof value === 'object' && 'id' in value && typeof value.id === 'number') return value.id;
+        return '';
+    };
+
     const formatTimeToDropdown = (time: string): string => {
         if (!time) return '';
         const match = time.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
@@ -69,6 +116,12 @@ export default function SchedulesManager() {
         if (hours > 12) hours -= 12;
         if (hours === 0) hours = 12;
         return `${String(hours).padStart(2, '0')}:${minutes} ${period}`;
+    };
+
+    const formatTimeForDisplay = (time: string): string => {
+        if (!time) return '';
+        const normalized = time.trim().replace(/^(\d{1,2}:\d{2}):(\d{2})$/, '$1');
+        return formatTimeToDropdown(normalized);
     };
 
     const formatTimeToBackend = (time: string): string => {
@@ -105,12 +158,14 @@ export default function SchedulesManager() {
 
     const openEdit = (offering: ClassOffering) => {
         setForm({
-            ...offering,
-            subject: offering.subject || '',
-            section: offering.section || '',
-            instructor: offering.instructor || '',
+            id: offering.id,
+            subject: parseEntityId(offering.subject) || '',
+            section: parseEntityId(offering.section) || '',
+            instructor: parseEntityId(offering.instructor) || '',
+            days: offering.days,
             start_time: formatTimeToDropdown(offering.start_time),
             end_time: formatTimeToDropdown(offering.end_time),
+            room: offering.room,
         });
         setModalOpen(true);
     };
@@ -132,7 +187,7 @@ export default function SchedulesManager() {
         };
 
         try {
-            if (form.id) {
+            if (form.id !== null) {
                 await api.patch(`offerings/${form.id}/`, payload);
             } else {
                 await api.post('offerings/', payload);
@@ -159,10 +214,10 @@ export default function SchedulesManager() {
         }
     };
 
-    const filtered = filter ? offerings.filter((o) => o.section === Number(filter)) : offerings;
+    const filtered = filter ? offerings.filter((o) => parseEntityId(o.section) === Number(filter)) : offerings;
 
-    const getSubjectUnits = (subjectId: number | '') => {
-        const subject = subjects.find((item) => item.id === subjectId);
+    const getSubjectUnits = (subjectId: EntityId) => {
+        const subject = subjects.find((item) => item.id === parseEntityId(subjectId));
         return subject ? subject.units : 0;
     };
 
@@ -263,12 +318,18 @@ export default function SchedulesManager() {
                             </div>
                             <div>
                                 <label className="block text-[11px] font-bold text-gray-500 mb-1">DAYS</label>
-                                <input
+                                <select
                                     className="w-full border border-gray-200 p-2.5 rounded-lg text-sm outline-none focus:border-blue-500 bg-white"
-                                    placeholder="MWF"
                                     value={form.days}
                                     onChange={(e) => setForm({ ...form, days: e.target.value })}
-                                />
+                                >
+                                    <option value="">Select Days...</option>
+                                    {DAYS_OPTIONS.map((days) => (
+                                        <option key={days} value={days}>
+                                            {days}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
 
@@ -368,9 +429,17 @@ export default function SchedulesManager() {
                                 </tr>
                             ) : (
                                 filtered.map((offering) => {
-                                    const subject = subjects.find((item) => item.id === offering.subject);
-                                    const section = sections.find((item) => item.id === offering.section);
-                                    const instructor = instructors.find((item) => item.id === offering.instructor);
+                                    const subjectId = parseEntityId(offering.subject);
+                                    const sectionId = parseEntityId(offering.section);
+                                    const instructorId = parseEntityId(offering.instructor);
+
+                                    const subject = subjects.find((item) => item.id === subjectId);
+                                    const section = sections.find((item) => item.id === sectionId);
+                                    const instructor = instructors.find((item) => item.id === instructorId);
+
+                                    const subjectLabel = offering.subject_title || (subject ? `${subject.code} - ${subject.name}` : 'TBA');
+                                    const sectionLabel = offering.section_name || section?.name || 'TBA';
+                                    const instructorLabel = offering.instructor_name || instructor?.nm || 'TBA';
 
                                     return (
                                         <tr
@@ -378,13 +447,11 @@ export default function SchedulesManager() {
                                             className="border-b border-gray-100 hover:bg-gray-50/80 cursor-pointer transition text-sm"
                                             onClick={() => offering.id && openEdit(offering)}
                                         >
-                                            <td className="p-4 font-bold text-gray-800">
-                                                {subject ? `${subject.code} - ${subject.name}` : 'TBA'}
-                                            </td>
+                                            <td className="p-4 font-bold text-gray-800">{subjectLabel}</td>
                                             <td className="p-4">
-                                                {section ? (
+                                                {sectionLabel !== 'TBA' ? (
                                                     <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded text-xs font-bold border border-blue-100">
-                                                        {section.name}
+                                                        {sectionLabel}
                                                     </span>
                                                 ) : (
                                                     <span className="text-gray-400 italic text-xs font-semibold">Unassigned</span>
@@ -395,12 +462,10 @@ export default function SchedulesManager() {
                                                     {offering.days || '—'}
                                                 </span>
                                             </td>
-                                            <td className="p-4 font-bold text-blue-600 whitespace-nowrap">{offering.start_time || '—'}</td>
-                                            <td className="p-4 text-gray-500 whitespace-nowrap">{offering.end_time || '—'}</td>
+                                            <td className="p-4 font-bold text-blue-600 whitespace-nowrap">{formatTimeForDisplay(offering.start_time) || '—'}</td>
+                                            <td className="p-4 text-gray-500 whitespace-nowrap">{formatTimeForDisplay(offering.end_time) || '—'}</td>
                                             <td className="p-4 text-gray-600 font-medium">{offering.room || '—'}</td>
-                                            <td className="p-4 text-gray-700">
-                                                {instructor?.nm || <span className="text-gray-400 italic text-xs font-semibold">TBA</span>}
-                                            </td>
+                                            <td className="p-4 text-gray-700">{instructorLabel !== 'TBA' ? instructorLabel : <span className="text-gray-400 italic text-xs font-semibold">TBA</span>}</td>
                                             <td className="p-4 text-center">
                                                 <span className="px-2.5 py-1 bg-gray-100 text-gray-600 rounded text-xs font-bold">
                                                     {subject ? subject.units : '—'}

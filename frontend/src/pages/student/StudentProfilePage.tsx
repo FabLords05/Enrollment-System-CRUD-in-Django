@@ -14,7 +14,7 @@ interface StudentProfile {
   last_name: string;
   phone: string;
   student_id?: string;
-  program_enrolled?: string;
+  program_enrolled?: string | number | null;
   year_level?: string;
   enrollment_status: string;
   section?: number | null;
@@ -25,6 +25,12 @@ interface Section {
   name: string;
 }
 
+interface Course {
+  id: number;
+  code: string;
+  name: string;
+}
+
 export default function StudentProfilePage() {
   const { user } = useContext(AuthContext) || {};
   const [editing, setEditing] = useState(false);
@@ -32,6 +38,7 @@ export default function StudentProfilePage() {
   
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [sectionName, setSectionName] = useState('Unassigned');
+  const [courses, setCourses] = useState<Course[]>([]);
   
   // State for the editable form fields
   const [form, setForm] = useState({
@@ -48,11 +55,14 @@ export default function StudentProfilePage() {
 
   const fetchMyProfile = async () => {
     try {
-      // 1. Fetch all students and sections
-      const [studentsRes, sectionsRes] = await Promise.all([
+      // 1. Fetch all students, sections, and courses
+      const [studentsRes, sectionsRes, coursesRes] = await Promise.all([
         api.get<StudentProfile[]>('students/'),
-        api.get<Section[]>('sections/')
+        api.get<Section[]>('sections/'),
+        api.get<Course[]>('courses/')
       ]);
+
+      setCourses(coursesRes.data || []);
 
       // 2. Find the student matching the logged-in user's email
       const myData = studentsRes.data.find(s => s.email?.toLowerCase() === user?.email?.toLowerCase());
@@ -104,14 +114,18 @@ export default function StudentProfilePage() {
 
   const initial = profile.first_name ? profile.first_name[0].toUpperCase() : '?';
   const fullName = `${profile.first_name} ${profile.last_name}`.trim() || 'No Name Set';
+  const course = courses.find(c => c.id === Number(profile.program_enrolled));
+  const courseLabel = course ? `${course.code} — ${course.name}` : 'Unassigned';
+  const studentIdValue = profile.student_id?.trim();
+  const showPendingStudentId = !studentIdValue || /pending/i.test(studentIdValue);
 
   return (
     <div className="max-w-2xl space-y-5">
       {/* Profile card */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-visible relative">
         <div className="bg-gradient-to-r from-ustpDarkBlue to-ustpBlue h-24 relative" />
-        <div className="px-6 pb-6 -mt-10">
-          <div className="w-20 h-20 rounded-full bg-ustpGold text-ustpDarkBlue flex items-center justify-center text-3xl font-extrabold border-4 border-white shadow-md uppercase">
+        <div className="px-6 pb-6 -mt-10 overflow-visible">
+          <div className="relative z-20 w-20 h-20 rounded-full bg-ustpGold text-ustpDarkBlue flex items-center justify-center text-3xl font-extrabold border-4 border-white shadow-md uppercase">
             {initial}
           </div>
           <div className="mt-3">
@@ -168,7 +182,14 @@ export default function StudentProfilePage() {
           {/* Read-Only System Fields */}
           <div>
             <label className="block text-[11px] text-gray-400 font-semibold uppercase tracking-wider mb-1">Student ID</label>
-            <input type="text" value={profile.student_id || 'Pending Assignment'} disabled className="w-full border border-gray-100 bg-gray-50 rounded-lg px-3 py-2 text-[13px] text-gray-700 cursor-not-allowed" />
+            {showPendingStudentId ? (
+              <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold rounded-md">
+                <span>⏳</span>
+                <span>Verification Pending</span>
+              </div>
+            ) : (
+              <input type="text" value={studentIdValue ?? ''} disabled className="w-full border border-gray-100 bg-gray-50 rounded-lg px-3 py-2 text-[13px] text-gray-700 cursor-not-allowed" />
+            )}
           </div>
           <div>
             <label className="block text-[11px] text-gray-400 font-semibold uppercase tracking-wider mb-1">Email Address</label>
@@ -176,7 +197,7 @@ export default function StudentProfilePage() {
           </div>
           <div>
             <label className="block text-[11px] text-gray-400 font-semibold uppercase tracking-wider mb-1">Program / Course</label>
-            <input type="text" value={profile.program_enrolled || 'Unassigned'} disabled className="w-full border border-gray-100 bg-gray-50 rounded-lg px-3 py-2 text-[13px] text-gray-700 cursor-not-allowed" />
+            <input type="text" value={courseLabel} disabled className="w-full border border-gray-100 bg-gray-50 rounded-lg px-3 py-2 text-[13px] text-gray-700 cursor-not-allowed" />
           </div>
           <div>
             <label className="block text-[11px] text-gray-400 font-semibold uppercase tracking-wider mb-1">Section</label>

@@ -5,7 +5,7 @@ from accounts.models import BaseUser, StudentProfile, ChangeRequest
 
 # 2. Import external app domain models
 from scheduling.models import Section
-from academics.models import Instructor, Subject, Term
+from academics.models import Instructor, Subject, Term, Course
 from .models import EnrollmentRecord, EnrolledClass
 from .models import PaymentTransaction
 
@@ -36,6 +36,9 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source='user.email', required=False)
     first_name = serializers.CharField(source='user.first_name', required=False, allow_blank=True)
     last_name = serializers.CharField(source='user.last_name', required=False, allow_blank=True)
+    # program_enrolled as FK id, plus read-only program code for UI
+    program_enrolled = serializers.PrimaryKeyRelatedField(queryset=Course.objects.all(), allow_null=True, required=False)
+    program_code = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = StudentProfile
@@ -44,6 +47,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             'email', 
             'student_id', 
             'program_enrolled', 
+            'program_code',
             'year_level', 
             'enrollment_status', 
             'first_name', 
@@ -84,6 +88,16 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         instance.save()
         
         return instance
+
+    def get_program_code(self, obj):
+        prog = getattr(obj, 'program_enrolled', None)
+        if prog is None:
+            return None
+        if hasattr(prog, 'code'):
+            return prog.code
+        if isinstance(prog, str):
+            return prog
+        return None
 
 class ChangeRequestSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()

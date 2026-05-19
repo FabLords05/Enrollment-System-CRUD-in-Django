@@ -56,7 +56,7 @@ class StudentProfile(models.Model):
     )
     user = models.OneToOneField(BaseUser, on_delete=models.CASCADE, related_name='student_profile')
     student_id = models.CharField(max_length=20, blank=True, null=True, unique=True)
-    program_enrolled = models.CharField(max_length=100, blank=True, null=True)
+    program_enrolled = models.ForeignKey('academics.Course', on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
     year_level = models.IntegerField(default=1)
     enrollment_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ADVISING')
     

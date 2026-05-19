@@ -15,6 +15,7 @@ import SubjectsManager from './components/admin/SubjectsManager';
 import InstructorsManager from './components/admin/InstructorsManager';
 import RequestsManager from './components/admin/RequestsManager';
 import SectionsManager from './components/admin/SectionsManager';
+import CoursesManager from './components/admin/CoursesManager';
 import SchedulesManager from './components/admin/SchedulesManager';
 
 export default function AdminDashboard() {
@@ -22,7 +23,7 @@ export default function AdminDashboard() {
     const [activePage, setActivePage] = useState('dashboard');
     
     // Live Summary Counts State
-    const [counts, setCounts] = useState({ students: 0, sections: 0, subjects: 0, instructors: 0 });
+    const [counts, setCounts] = useState({ students: 0, sections: 0, subjects: 0, courses: 0, instructors: 0 });
     const [loading, setLoading] = useState(true);
 
     // Re-fetch database metrics whenever the Admin navigates back to the main dashboard summary
@@ -35,10 +36,11 @@ export default function AdminDashboard() {
     const fetchSummaryCounts = async () => {
         try {
             setLoading(true);
-            const [stuRes, secRes, subRes, instRes] = await Promise.all([
+            const [stuRes, secRes, subRes, courseRes, instRes] = await Promise.all([
                 api.get('students/'),
                 api.get('sections/'),
                 api.get('subjects/'),
+                api.get('courses/'),
                 api.get('instructors/')
             ]);
             
@@ -46,6 +48,7 @@ export default function AdminDashboard() {
                 students: stuRes.data.length,
                 sections: secRes.data.length,
                 subjects: subRes.data.length,
+                courses: courseRes.data.length,
                 instructors: instRes.data.length
             });
         } catch (err) {
@@ -104,9 +107,9 @@ export default function AdminDashboard() {
                             />
                             <StatCard 
                                 label="Course Catalog" 
-                                value={counts.subjects.toString()} 
+                                value={counts.courses.toString()} 
                                 icon="book" 
-                                sub="Configured subjects" 
+                                sub="Configured programs" 
                                 iconColor="text-orange-600" 
                                 iconBg="bg-orange-50" 
                             />
@@ -147,6 +150,7 @@ export default function AdminDashboard() {
             {activePage === 'students'    && <StudentsManager />}
             {activePage === 'sections'    && <SectionsManager />}
             {activePage === 'subjects'    && <SubjectsManager />}
+            {activePage === 'courses'     && <CoursesManager />}
             {activePage === 'instructors' && <InstructorsManager />}
             {activePage === 'schedules'   && <SchedulesManager />}
             {activePage === 'requests'    && <RequestsManager />}

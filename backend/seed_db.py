@@ -36,7 +36,8 @@ def seed_database():
             # The post_save signal automatically creates the StudentProfile, so we just update it:
             profile = student.student_profile
             profile.student_id = f"2026-000{i}"
-            profile.program_enrolled = "BS Computer Science"
+            # Leave program unset for seeded students; set programs explicitly later if desired
+            profile.program_enrolled = None
             profile.save()
 
     # --- ACADEMICS ---

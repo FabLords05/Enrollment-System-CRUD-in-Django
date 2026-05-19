@@ -7,69 +7,83 @@ import React, { useState, useEffect, useContext } from 'react';
 import api from '../../api/axiosSetup';
 import { AuthContext } from '../../context/AuthContext';
 
-interface Subject {
+interface SubjectMaster {
   id: number;
-  nm: string;
-  secId: number;
-  units: number;
+  code: string;
+  title?: string;
+  name?: string;
+  units?: number;
+}
+
+interface Offering {
+  id: number;
+  subject: number;
+  subject_title?: string;
+  subject_code?: string;
+  subject_units?: number;
+  section: number;
   days: string;
-  st: string;
-  et: string;
-  instId: number | null;
-  room: string;
+  start_time: string; // e.g. "08:30:00"
+  end_time: string;
+  room?: string;
+  instructor?: number | null;
+  instructor_name?: string;
 }
 
 interface Instructor {
   id: number;
-  nm: string;
+  name?: string;
+  nm?: string;
 }
 
 export default function StudentSubjectsPage() {
   const { user } = useContext(AuthContext) || {};
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [offerings, setOfferings] = useState<Offering[]>([]);
+  const [subjects, setSubjects] = useState<SubjectMaster[]>([]);
   const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user?.email) {
-      fetchData();
-    }
+    if (user?.email) fetchData();
   }, [user]);
 
   const fetchData = async () => {
     try {
-      // 1. Fetch tables concurrently
-      const [studentsRes, subRes, instRes] = await Promise.all([
+      // Fetch students, offerings, subjects (master catalog), instructors concurrently
+      const [studentsRes, offersRes, subjRes, instRes] = await Promise.all([
         api.get('students/'),
-        api.get<Subject[]>('subjects/'), 
+        api.get<Offering[]>('offerings/'),
+        api.get<SubjectMaster[]>('subjects/'),
         api.get<Instructor[]>('instructors/')
       ]);
-      
-      setInstructors(instRes.data);
 
-      // 2. Locate current student profile mapping
+      setOfferings(offersRes.data);
+      setSubjects(subjRes.data);
+      setInstructors(instRes.data || []);
+
       const myData = studentsRes.data.find((s: any) => s.email?.toLowerCase() === user?.email?.toLowerCase());
-      
       if (myData && myData.section) {
-        // 3. Filter down so they ONLY see classes matching their block section
-        const sectionLoad = subRes.data.filter(s => s.secId === myData.section);
-        setSubjects(sectionLoad);
+        const sectionLoad = offersRes.data.filter(o => o.section === myData.section);
+        setOfferings(sectionLoad);
       } else {
-        setSubjects([]);
+        setOfferings([]);
       }
     } catch (err) {
-      console.error("Failed to fetch student subject load:", err);
+      console.error('Failed to fetch student subject load:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const filtered = subjects.filter(s =>
-    s.nm.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredOfferings = offerings.filter(o => {
+    const subj = subjects.find(s => s.id === o.subject);
+    const code = o.subject_code || subj?.code || '';
+    const title = o.subject_title || subj?.title || subj?.name || '';
+    return `${code} ${title}`.toLowerCase().includes(search.toLowerCase());
+  });
 
-  const totalUnits = subjects.reduce((a, s) => a + s.units, 0);
+  const totalUnits = (offerings || []).reduce((a, o) => a + (o.subject_units ?? (subjects.find(s => s.id === o.subject)?.units ?? 0)), 0);
 
   if (loading) {
     return <div className="p-10 text-center text-gray-400 font-medium animate-pulse">Loading assigned subjects...</div>;
@@ -92,14 +106,18 @@ export default function StudentSubjectsPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filtered.map((s) => {
-          const instructorName = instructors.find(i => i.id === s.instId)?.nm || 'TBA';
-          const nameParts = s.nm.split(' - ');
-          const code = nameParts.length > 1 ? nameParts[0] : 'SUBJ';
-          const title = nameParts.length > 1 ? nameParts[1] : s.nm;
+        {filteredOfferings.map((o) => {
+          const subj = subjects.find(s => s.id === o.subject);
+          const code = o.subject_code || subj?.code || `SUBJ-${o.subject}`;
+          const title = o.subject_title || subj?.title || subj?.name || 'Untitled Subject';
+          const units = o.subject_units ?? subj?.units ?? 0;
+          const instructorName = o.instructor_name || instructors.find(i => i.id === o.instructor)?.name || instructors.find(i => i.id === o.instructor)?.nm || 'TBA';
+          const days = o.days || 'TBA';
+          const st = o.start_time?.replace(/:00$/, '') ?? 'TBA';
+          const et = o.end_time?.replace(/:00$/, '') ?? 'TBA';
 
           return (
-            <div key={s.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:shadow-md transition-shadow">
+            <div key={o.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between gap-2 mb-3">
                 <div>
                   <div className="font-mono text-[12px] font-bold text-ustpBlue bg-blue-50 px-2 py-0.5 rounded inline-block">{code}</div>
@@ -109,17 +127,17 @@ export default function StudentSubjectsPage() {
               </div>
               <div className="grid grid-cols-2 gap-y-1 text-[12px] text-gray-500">
                 <span>👤 {instructorName}</span>
-                <span>📚 {s.units} units</span>
-                <span>📅 {s.days}</span>
-                <span>🕐 {s.st} – {s.et}</span>
-                <span>🏫 {s.room}</span>
+                <span>📚 {units} units</span>
+                <span>📅 {days}</span>
+                <span>🕐 {st} – {et}</span>
+                <span>🏫 {o.room || 'TBA'}</span>
               </div>
             </div>
           );
         })}
       </div>
 
-      {filtered.length === 0 && (
+      {filteredOfferings.length === 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-10 text-center text-gray-400 italic text-sm">
           No class records found. You might be unassigned to a section block by the Registrar.
         </div>
