@@ -1,6 +1,5 @@
 /**
- * CashierPaymentsPage.tsx  ─  BACKEND CONNECTED
- * Drop into: frontend/src/pages/cashier/CashierPaymentsPage.tsx
+ * CashierPaymentsPage.tsx  ─  LEDGER CONNECTED + DYNAMIC POS
  */
 
 import React, { useState, useEffect } from 'react';
@@ -16,15 +15,16 @@ interface Student {
   program_enrolled: string;
 }
 
-interface Subject {
+interface Assessment {
   id: number;
-  secId: number;
-  units: number;
+  student_id: number;
+  total_amount: string; // Django decimals come back as strings
+  balance_due: string;
 }
 
 export default function CashierPaymentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [search, setSearch] = useState('');
   
   // Form State
@@ -39,12 +39,13 @@ export default function CashierPaymentsPage() {
 
   const fetchData = async () => {
     try {
-      const [studentsRes, subjectsRes] = await Promise.all([
+      // Fetch both students and their official financial assessments
+      const [studentsRes, assessmentsRes] = await Promise.all([
         api.get<Student[]>('students/'),
-        api.get<Subject[]>('subjects/')
+        api.get<Assessment[]>('assessments/')
       ]);
       setStudents(studentsRes.data);
-      setSubjects(subjectsRes.data);
+      setAssessments(assessmentsRes.data);
     } catch (error) {
       console.error("Error fetching payment data:", error);
     } finally {
@@ -52,25 +53,58 @@ export default function CashierPaymentsPage() {
     }
   };
 
-  const calculateBalance = (sectionId: number | null) => {
-    if (!sectionId) return 0;
-    const enrolledSubjects = subjects.filter(sub => sub.secId === sectionId);
-    const units = enrolledSubjects.reduce((sum, sub) => sum + sub.units, 0);
-    return (units * 400) + 3550; // Tuition + Fixed Fees
+  // Helper to find the official ledger balance for a student
+  const getStudentAssessment = (studentId: number) => {
+    return assessments.find(a => a.student_id === studentId);
   };
 
   const handlePost = async () => {
     if (!selected) return;
     
+    const assessment = getStudentAssessment(selected.id);
+    if (!assessment) {
+      alert("Error: No financial assessment record found for this student.");
+      return;
+    }
+
+    const enteredAmount = Number(amount) || 0;
+    const currentBalance = Number(assessment.balance_due);
+    
+    if (enteredAmount <= 0) {
+      alert("Please enter a valid payment amount.");
+      return;
+    }
+
     try {
-      await api.patch(`students/${selected.id}/`, { enrollment_status: 'ENROLLED' });
-      alert(`✅ Payment of ₱${Number(amount).toLocaleString()} posted for ${selected.first_name} via ${method}.`);
+      // 1. Generate a mock receipt number (or let backend handle it)
+      const receiptNumber = 'REC-' + Math.floor(100000 + Math.random() * 900000);
+
+      // 2. POST the actual payment to the database (Triggering your Django save() hook)
+      await api.post('payments/', {
+        assessment: assessment.id,
+        amount_paid: enteredAmount,
+        receipt_number: receiptNumber
+      });
+      
+      // 3. If the payment fully clears the balance, officially update their enrollment status
+      if (enteredAmount >= currentBalance) {
+          await api.patch(`students/${selected.id}/`, { enrollment_status: 'ENROLLED' });
+      }
+
+      let successMessage = `✅ Payment of ₱${enteredAmount.toLocaleString()} posted!\nReceipt: ${receiptNumber}`;
+      if (enteredAmount > currentBalance) {
+        successMessage += `\n\nChange due: ₱${(enteredAmount - currentBalance).toLocaleString()}`;
+      }
+
+      alert(successMessage);
+      
+      // Clear queue and refresh DB ledgers
       setSelected(null);
       setAmount('');
-      fetchData(); // Refresh list to remove from queue
+      fetchData(); 
     } catch (error) {
       console.error("Failed to post payment", error);
-      alert("Failed to process payment. Check connection.");
+      alert("Failed to process payment. Ensure the backend payments API is running.");
     }
   };
 
@@ -81,7 +115,7 @@ export default function CashierPaymentsPage() {
 
   const fmt = (n: number) => '₱' + n.toLocaleString();
 
-  if (loading) return <div className="p-10 text-center text-gray-400 font-medium animate-pulse">Loading Payments System...</div>;
+  if (loading) return <div className="p-10 text-center text-gray-400 font-medium animate-pulse">Loading Official Ledgers...</div>;
 
   return (
     <div className="space-y-5">
@@ -108,23 +142,28 @@ export default function CashierPaymentsPage() {
               <thead>
                 <tr className="bg-gray-50 text-left text-[11px] text-gray-400 font-semibold uppercase tracking-wider">
                   <th className="px-5 py-3">Student Name</th>
-                  <th className="px-5 py-3">Program</th>
-                  <th className="px-5 py-3 text-right">Balance</th>
+                  <th className="px-5 py-3 text-right">Ledger Balance</th>
                   <th className="px-5 py-3 text-center">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map(p => {
-                  const balance = calculateBalance(p.section);
+                  const assessment = getStudentAssessment(p.id);
+                  const balance = assessment ? Number(assessment.balance_due) : 0;
+                  
                   return (
                     <tr key={p.id} className={`border-t border-gray-100 transition-colors ${selected?.id === p.id ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
                       <td className="px-5 py-3 text-gray-700 font-medium">{p.last_name}, {p.first_name}</td>
-                      <td className="px-5 py-3 text-gray-500">{p.program_enrolled || 'N/A'}</td>
-                      <td className="px-5 py-3 text-right font-bold text-red-500">{fmt(balance)}</td>
+                      <td className="px-5 py-3 text-right font-bold text-red-500">
+                        {assessment ? fmt(balance) : 'No Assessment'}
+                      </td>
                       <td className="px-5 py-3 text-center">
                         <button
+                          disabled={!assessment}
                           onClick={() => { setSelected(p); setAmount(String(balance)); }}
-                          className="text-[11px] bg-ustpDarkBlue text-white px-3 py-1 rounded-lg hover:bg-ustpBlue transition-colors font-semibold"
+                          className={`text-[11px] px-3 py-1 rounded-lg transition-colors font-semibold ${
+                              assessment ? 'bg-ustpDarkBlue text-white hover:bg-ustpBlue' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          }`}
                         >
                           Select
                         </button>
@@ -134,7 +173,7 @@ export default function CashierPaymentsPage() {
                 })}
                 {filtered.length === 0 && (
                     <tr>
-                        <td colSpan={4} className="px-5 py-10 text-center text-gray-400">No pending assessments.</td>
+                        <td colSpan={3} className="px-5 py-10 text-center text-gray-400">No pending assessments.</td>
                     </tr>
                 )}
               </tbody>
@@ -143,8 +182,8 @@ export default function CashierPaymentsPage() {
         </div>
 
         {/* Payment form */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-          <h4 className="text-[13px] font-bold text-ustpDarkBlue mb-4">Post Payment</h4>
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 h-fit">
+          <h4 className="text-[13px] font-bold text-ustpDarkBlue mb-4">Post POS Payment</h4>
           {selected ? (
             <div className="space-y-4">
               <div>
@@ -152,19 +191,45 @@ export default function CashierPaymentsPage() {
                 <div className="text-[13px] font-bold text-gray-800">
                   {selected.first_name} {selected.last_name}
                 </div>
-                <div className="text-[11px] text-gray-400">
-                  Total Due: <span className="text-red-500 font-bold">{fmt(calculateBalance(selected.section))}</span>
+                <div className="text-[11px] text-gray-400 mt-1">
+                  Database Balance Due: <span className="text-red-500 font-bold">
+                    {fmt(Number(getStudentAssessment(selected.id)?.balance_due || 0))}
+                  </span>
                 </div>
               </div>
+              
               <div>
-                <label className="block text-[11px] text-gray-400 font-semibold uppercase tracking-wider mb-1">Amount to Pay (₱)</label>
+                <label className="block text-[11px] text-gray-400 font-semibold uppercase tracking-wider mb-1">Amount Received (₱)</label>
                 <input
                   type="number"
+                  min="0"
                   value={amount}
                   onChange={e => setAmount(e.target.value)}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ustpBlue/30"
                 />
+                
+                {/* 🟢 DYNAMIC POS DISPLAY LOGIC 🟢 */}
+                {Number(amount) > 0 && getStudentAssessment(selected.id) && (
+                  <div className="mt-2 text-[12px] font-bold">
+                    {Number(amount) < Number(getStudentAssessment(selected.id)!.balance_due) && (
+                      <span className="text-orange-500 bg-orange-50 px-2 py-1 rounded inline-block">
+                        Remaining Balance: {fmt(Number(getStudentAssessment(selected.id)!.balance_due) - Number(amount))}
+                      </span>
+                    )}
+                    {Number(amount) > Number(getStudentAssessment(selected.id)!.balance_due) && (
+                      <span className="text-emerald-600 bg-emerald-50 px-2 py-1 rounded inline-block">
+                        Change Due: {fmt(Number(amount) - Number(getStudentAssessment(selected.id)!.balance_due))}
+                      </span>
+                    )}
+                    {Number(amount) === Number(getStudentAssessment(selected.id)!.balance_due) && (
+                      <span className="text-emerald-600 bg-emerald-50 px-2 py-1 rounded inline-block">
+                        Fully Covered
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
+
               <div>
                 <label className="block text-[11px] text-gray-400 font-semibold uppercase tracking-wider mb-1">Payment Method</label>
                 <select
@@ -186,7 +251,10 @@ export default function CashierPaymentsPage() {
                   ✓ Confirm
                 </button>
                 <button
-                  onClick={() => setSelected(null)}
+                  onClick={() => {
+                    setSelected(null);
+                    setAmount('');
+                  }}
                   className="flex-1 bg-gray-100 text-gray-600 text-[12px] font-bold py-2 rounded-lg hover:bg-gray-200 transition-colors"
                 >
                   Cancel
@@ -195,7 +263,7 @@ export default function CashierPaymentsPage() {
             </div>
           ) : (
             <div className="text-center text-gray-300 py-10 text-[13px]">
-              Select a student from the list to post a payment.
+              Select a student from the list to post a payment to their DB ledger.
             </div>
           )}
         </div>

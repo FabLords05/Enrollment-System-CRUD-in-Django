@@ -2,7 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ⚠️  Update this to your Django server's IP/address
-export const BASE_URL = 'http://192.168.1.32:8000/api/';
+export const BASE_URL = 'http://192.168.68.132:8000/api/';
 
 const api = axios.create({
   baseURL: BASE_URL,

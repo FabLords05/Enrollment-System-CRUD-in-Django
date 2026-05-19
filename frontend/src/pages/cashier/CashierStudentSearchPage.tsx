@@ -1,5 +1,5 @@
 /**
- * CashierStudentSearchPage.tsx  ─  BACKEND CONNECTED
+ * CashierStudentSearchPage.tsx  ─  OFFICIAL LEDGER CONNECTED
  * Drop into: frontend/src/pages/cashier/CashierStudentSearchPage.tsx
  */
 
@@ -18,21 +18,15 @@ interface Student {
   section: number | null;
 }
 
-interface Subject {
+interface Assessment {
   id: number;
-  units: number;
-}
-
-interface Offering {
-  id: number;
-  subject: number;
-  section: number;
+  student_id: number;
+  balance_due: string;
 }
 
 export default function CashierStudentSearchPage() {
   const [students, setStudents] = useState<Student[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [offerings, setOfferings] = useState<Offering[]>([]);
+  const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'ENROLLED' | 'ASSESSED' | 'ADVISING'>('all');
   const [loading, setLoading] = useState(true);
@@ -43,31 +37,18 @@ export default function CashierStudentSearchPage() {
 
   const fetchSearchData = async () => {
     try {
-      const [studentsRes, subjectsRes] = await Promise.all([
+      // 🟢 Fetch students and the official database financial ledgers
+      const [studentsRes, assessmentsRes] = await Promise.all([
         api.get<Student[]>('students/'),
-        api.get<Subject[]>('subjects/')
+        api.get<Assessment[]>('assessments/') 
       ]);
       setStudents(studentsRes.data);
-      setSubjects(subjectsRes.data);
+      setAssessments(assessmentsRes.data);
     } catch (error) {
       console.error("Error running cashier search fetch:", error);
     } finally {
       setLoading(false);
     }
-  };
-
-  // Helper to calculate exact financial balance based on assigned block section load
-  const calculateBalance = (student: Student) => {
-    if (student.enrollment_status !== 'ASSESSED' && student.enrollment_status !== 'ADVISING') {
-      return 0; // If they already paid/enrolled, active remaining balance is cleared
-    }
-    if (!student.section) return 0;
-
-    const enrolledSubjects = subjects.filter(sub => sub.secId === student.section);
-    const units = enrolledSubjects.reduce((sum, sub) => sum + sub.units, 0);
-    const tuition = units * 400; // ₱400 per unit rate
-    const fixedFees = 1500 + 1200 + 350 + 500 + 500; // Misc, Lab, NSTP, Fund, Reg
-    return tuition + fixedFees;
   };
 
   const results = students.filter(s => {
@@ -79,7 +60,7 @@ export default function CashierStudentSearchPage() {
 
   const fmt = (n: number) => n === 0 ? '—' : '₱' + n.toLocaleString();
 
-  if (loading) return <div className="p-10 text-center text-gray-400 font-medium animate-pulse">Warming up search ledger...</div>;
+  if (loading) return <div className="p-10 text-center text-gray-400 font-medium animate-pulse">Warming up official ledger search...</div>;
 
   return (
     <div className="space-y-5">
@@ -136,14 +117,17 @@ export default function CashierStudentSearchPage() {
             </thead>
             <tbody>
               {results.map(s => {
-                const balance = calculateBalance(s);
+                // 🟢 UPDATED: Pull the verified balance directly from the database ledger
+                const assessment = assessments.find(a => a.student_id === s.id);
+                const balance = assessment ? Number(assessment.balance_due) : 0;
+                
                 return (
                   <tr key={s.id} className="border-t border-gray-100 hover:bg-gray-50 transition-colors">
                     <td className="px-5 py-3 font-mono text-[12px] text-ustpBlue font-bold">#{s.id}</td>
                     <td className="px-5 py-3 text-gray-700 font-semibold">{s.last_name || 'N/A'}, {s.first_name || 'N/A'}</td>
                     <td className="px-5 py-3 text-gray-500 text-[13px]">{s.program_enrolled || 'Unset'} (Year {s.year_level || '1'})</td>
                     <td className={`px-5 py-3 text-right font-mono font-bold ${balance > 0 ? 'text-red-500' : 'text-gray-400'}`}>
-                      {fmt(balance)}
+                      {assessment ? fmt(balance) : 'No Assessment'}
                     </td>
                     <td className="px-5 py-3 text-center">
                       <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold tracking-wide ${

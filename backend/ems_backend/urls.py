@@ -6,6 +6,9 @@ from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+# Import your finance views
+from finance.views import AssessmentViewSet, PaymentViewSet
+
 # Rebrand the Django Admin interface to EduTrack
 admin.site.site_header = "EduTrack Admin Portal"
 admin.site.site_title = "EduTrack Portal"
@@ -51,6 +54,9 @@ router.register(r'courses', CourseViewSet, basename='course')
 router.register(r'instructors', InstructorViewSet, basename='instructor')
 router.register(r'subjects', SubjectViewSet, basename='subject')
 router.register(r'offerings', ClassOfferingViewSet, basename='offering')
+# Add these two lines for the cashier ledger:
+router.register(r'assessments', AssessmentViewSet)
+router.register(r'payments', PaymentViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -60,4 +66,5 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     
     path('api/', include(router.urls)),
+    
 ]
