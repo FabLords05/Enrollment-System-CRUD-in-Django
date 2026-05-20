@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.exceptions import ValidationError
 
 class Term(models.Model):
     name = models.CharField(max_length=100)  # e.g., "AY 2026-2027, 1st Semester"
@@ -49,6 +50,22 @@ class ClassOffering(models.Model):
     start_time = models.TimeField()
     end_time = models.TimeField()
     room = models.CharField(max_length=50)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['subject', 'section'], name='unique_subject_per_section')
+        ]
+
+    def clean(self):
+        existing = ClassOffering.objects.filter(subject=self.subject, section=self.section).exclude(pk=self.pk)
+        if existing.exists():
+            raise ValidationError(
+                f"The subject '{self.subject.name}' already exists in section '{self.section.name}'."
+            )
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.subject} · {self.section.name} · {self.days} {self.start_time}-{self.end_time}"
