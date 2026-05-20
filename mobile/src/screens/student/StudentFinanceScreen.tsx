@@ -1,19 +1,31 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, ScrollView } from 'react-native';
-import { AuthContext } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../api/axiosSetup';
 import { COLORS } from '../../constants/colors';
 
 export default function StudentFinanceScreen() {
-  const auth = useContext(AuthContext);
-  const [state, setState] = useState({ loading: true, status: 'ADVISING', units: 0, balance: 0 });
+  const auth = useAuth();
+  const [state, setState] = useState({ loading: true, status: 'ADVISING', units: 0, balance: 0, notFound: false });
 
   useEffect(() => {
     (async () => {
       try {
         const [stu, sub] = await Promise.all([api.get('students/'), api.get('subjects/')]);
-        const active = stu.data.find((s: any) => s.email?.toLowerCase() === auth?.user?.email?.toLowerCase());
-        if (!active) return;
+        console.log('User Auth:', auth?.user);
+        console.log('First Student:', stu.data[0]);
+        
+        const userEmail = auth?.user?.email?.toLowerCase();
+        const active = stu.data.find((s: any) => {
+          const studentEmail = (s.email || s.user?.email)?.toLowerCase?.();
+          return studentEmail === userEmail;
+        });
+        
+        if (!active) {
+          console.warn('Student profile not found in API response');
+          setState(prev => ({ ...prev, loading: false, notFound: true }));
+          return;
+        }
 
         const filtered = sub.data.filter((s: any) => s.secId === active.section);
         const unitsCount = filtered.reduce((sum: number, s: any) => sum + s.units, 0);
@@ -26,6 +38,15 @@ export default function StudentFinanceScreen() {
       } catch (e) { console.error(e); }
     })();
   }, []);
+
+  if (state.notFound) {
+    return (
+      <View style={styles.centerBox}>
+        <Text style={styles.centerTitle}>Student Profile Not Found</Text>
+        <Text style={styles.centerDesc}>We could not locate your student account. Please verify your login credentials and contact the Registrar for assistance.</Text>
+      </View>
+    );
+  }
 
   if (state.status === 'ADVISING') {
     return (

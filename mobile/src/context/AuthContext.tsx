@@ -1,9 +1,9 @@
-import React, { createContext, useState, useEffect } from 'react';
-import * as SecureStore from 'expo-secure-store';
+import React, { createContext, useState, useEffect, useContext } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface User {
   email: string;
-  role: 'STUDENT';
+  role: string;
 }
 
 interface AuthContextType {
@@ -22,7 +22,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
-        const storedUser = await SecureStore.getItemAsync('user_profile');
+        const storedUser = await AsyncStorage.getItem('userProfile');
         if (storedUser) setUser(JSON.parse(storedUser));
       } catch (e) {
         console.error(e);
@@ -33,16 +33,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (access: string, refresh: string, userPayload: User) => {
-    await SecureStore.setItemAsync('access_token', access);
-    await SecureStore.setItemAsync('refresh_token', refresh);
-    await SecureStore.setItemAsync('user_profile', JSON.stringify(userPayload));
+    const userRole = String(userPayload?.role ?? '').toUpperCase();
+    if (!userRole || userRole !== 'STUDENT') {
+      throw new Error('ACCESS_DENIED');
+    }
+
+    // Ensure storage writes complete before updating in-memory state/navigation.
+    await AsyncStorage.setItem('accessToken', access);
+    await AsyncStorage.setItem('refreshToken', refresh);
+    await AsyncStorage.setItem('userProfile', JSON.stringify(userPayload));
+    // Only update user state after tokens and profile are persisted to storage
     setUser(userPayload);
   };
 
   const logout = async () => {
-    await SecureStore.deleteItemAsync('access_token');
-    await SecureStore.deleteItemAsync('refresh_token');
-    await SecureStore.deleteItemAsync('user_profile');
+    await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'userProfile']);
     setUser(null);
   };
 
@@ -52,3 +57,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     </AuthContext.Provider>
   );
 }
+
+// Hook for convenient access to auth context
+export const useAuth = (): AuthContextType => {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within an AuthProvider');
+  return ctx;
+};

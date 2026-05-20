@@ -11,22 +11,25 @@ import api from '../../api/axiosSetup';
 import { useAuth } from '../../context/AuthContext';
 import { Colors } from '../../constants/colors';
 
-interface Subject {
+interface ClassOffering {
   id: number;
-  nm: string;
-  secId: number;
-  units: number;
-  days: string;
-  st: string;
-  et: string;
-  instId: number | null;
-  room: string;
+  subject_code?: string;
+  subject_title?: string;
+  subject_name?: string;
+  subject_units?: number;
+  section: number;
+  days?: string;
+  start_time?: string;
+  end_time?: string;
+  room?: string;
+  instructor?: number | null;
+  subject?: { id: number; code: string; name: string; units: number };
 }
 interface Instructor { id: number; nm: string; }
 
 export default function StudentSubjectsScreen() {
   const { user } = useAuth();
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [subjects, setSubjects] = useState<ClassOffering[]>([]);
   const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -37,17 +40,28 @@ export default function StudentSubjectsScreen() {
 
   const fetchData = async () => {
     try {
-      const [studentsRes, subRes, instRes] = await Promise.all([
+      const [studentsRes, offRes, instRes] = await Promise.all([
         api.get('students/'),
-        api.get<Subject[]>('subjects/'),
+        api.get<ClassOffering[]>('offerings/'),
         api.get<Instructor[]>('instructors/'),
       ]);
+      console.log('User Auth:', user);
+      console.log('First Student:', studentsRes.data[0]);
+      console.log('Sample Offering:', offRes.data[0]);
+      
       setInstructors(instRes.data);
+      const userEmail = user?.email?.toLowerCase();
       const myData = studentsRes.data.find(
-        (s: any) => s.email?.toLowerCase() === user?.email?.toLowerCase()
+        (s: any) => {
+          const studentEmail = (s.email || s.user?.email)?.toLowerCase?.();
+          return studentEmail === userEmail;
+        }
       );
-      if (myData?.section) {
-        setSubjects(subRes.data.filter((s) => s.secId === myData.section));
+      
+      if (!myData) {
+        console.warn('Student profile not found in API response');
+      } else if (myData?.section) {
+        setSubjects(offRes.data.filter((o) => o.section === myData.section));
       }
     } catch (err) {
       console.error('Subjects fetch error:', err);
@@ -56,10 +70,13 @@ export default function StudentSubjectsScreen() {
     }
   };
 
-  const filtered = subjects.filter((s) =>
-    s.nm.toLowerCase().includes(search.toLowerCase())
-  );
-  const totalUnits = subjects.reduce((a, s) => a + s.units, 0);
+  const filtered = subjects.filter((o) => {
+    const subjectName = (o.subject_title || o.subject?.name || 'Unknown Subject').toLowerCase();
+    const subjectCode = (o.subject_code || o.subject?.code || '').toLowerCase();
+    const searchLower = search.toLowerCase();
+    return subjectName.includes(searchLower) || subjectCode.includes(searchLower);
+  });
+  const totalUnits = subjects.reduce((a, o) => a + (o.subject_units || o.subject?.units || 0), 0);
 
   const getInstructor = (id: number | null) =>
     instructors.find((i) => i.id === id)?.nm || 'TBA';
@@ -80,7 +97,7 @@ export default function StudentSubjectsScreen() {
         <View>
           <Text style={styles.headerTitle}>My Enrolled Subjects</Text>
           <Text style={styles.headerSub}>
-            SY 2025–2026 · 1st Sem · {totalUnits} total units
+            SY 2026–2027 · 1st Sem · {totalUnits} total units
           </Text>
         </View>
       </View>
@@ -102,7 +119,7 @@ export default function StudentSubjectsScreen() {
         <View style={styles.emptyBox}>
           <Text style={styles.emptyText}>
             {subjects.length === 0
-              ? 'No subjects assigned yet. Waiting for Registrar.'
+              ? 'No subjects assigned yet. Waiting for Registrar. If this persists, contact support.'
               : 'No subjects match your search.'}
           </Text>
         </View>
@@ -112,11 +129,14 @@ export default function StudentSubjectsScreen() {
           keyExtractor={(item) => item.id.toString()}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          renderItem={({ item: s }) => {
-            const parts = s.nm.split(' - ');
-            const code = parts.length > 1 ? parts[0] : 'SUBJ';
-            const title = parts.length > 1 ? parts[1] : s.nm;
-            const instructor = getInstructor(s.instId);
+          renderItem={({ item: o }) => {
+            const code = o.subject_code || o.subject?.code || 'N/A';
+            const title = o.subject_title || o.subject?.name || 'Unknown Subject';
+            const units = o.subject_units || o.subject?.units || 0;
+            const startTime = o.start_time || o.st || 'TBA';
+            const endTime = o.end_time || o.et || 'TBA';
+            const room = o.room || 'TBA';
+            const instructor = getInstructor(o.instructor || null);
             return (
               <View style={styles.card}>
                 <View style={styles.cardTop}>
@@ -133,13 +153,13 @@ export default function StudentSubjectsScreen() {
                 <View style={styles.cardDetails}>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailItem}>👤 {instructor}</Text>
-                    <Text style={styles.detailItem}>📚 {s.units} units</Text>
+                    <Text style={styles.detailItem}>📚 {units} units</Text>
                   </View>
                   <View style={styles.detailRow}>
-                    <Text style={styles.detailItem}>📅 {s.days}</Text>
-                    <Text style={styles.detailItem}>🕐 {s.st} – {s.et}</Text>
+                    <Text style={styles.detailItem}>📅 {o.days || 'TBA'}</Text>
+                    <Text style={styles.detailItem}>🕐 {startTime} – {endTime}</Text>
                   </View>
-                  <Text style={styles.detailItem}>🏫 {s.room}</Text>
+                  <Text style={styles.detailItem}>🏫 {room}</Text>
                 </View>
               </View>
             );

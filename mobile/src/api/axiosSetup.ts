@@ -14,8 +14,9 @@ const api = axios.create({
 // Attach access token to every outgoing request
 api.interceptors.request.use(
   async (config) => {
-    const token = await AsyncStorage.getItem('access_token');
-    if (token && config.headers) {
+    const token = await AsyncStorage.getItem('accessToken');
+    if (token) {
+      config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -39,7 +40,8 @@ api.interceptors.response.use(
             refresh: refreshToken,
           });
           const newAccess = response.data.access;
-          await AsyncStorage.setItem('access_token', newAccess);
+          await AsyncStorage.setItem('accessToken', newAccess);
+          originalRequest.headers = originalRequest.headers || {};
           originalRequest.headers.Authorization = `Bearer ${newAccess}`;
           return api(originalRequest);
         } catch (refreshError) {

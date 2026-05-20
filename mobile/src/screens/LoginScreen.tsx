@@ -1,11 +1,13 @@
-import React, { useState, useContext } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView } from 'react-native';
-import { AuthContext } from '../context/AuthContext';
+import React, { useState } from 'react';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { jwtDecode } from 'jwt-decode';
+import { useAuth } from '../context/AuthContext';
 import api from '../api/axiosSetup';
 import { COLORS } from '../constants/colors';
 
 export default function LoginScreen() {
-  const auth = useContext(AuthContext);
+  const auth = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -14,11 +16,29 @@ export default function LoginScreen() {
   const handleSignIn = async () => {
     setError('');
     setLoading(true);
+
     try {
-      const res = await api.post('token/', { email, password });
-      await auth?.login(res.data.access, res.data.refresh, { email, role: 'STUDENT' });
-    } catch (err) {
-      setError('Invalid academic account verification credentials.');
+      const response = await api.post('token/', { email, password });
+      console.log('API Response:', response.data);
+
+      const decoded = jwtDecode<any>(response.data.access);
+      console.log('Successfully Decoded:', decoded);
+
+      const userRole = decoded?.role?.toUpperCase();
+      if (userRole !== 'STUDENT') {
+        Alert.alert(
+          'Access Denied',
+          'This mobile application is strictly for student use. Please use the web portal for administrative access.'
+        );
+        return;
+      }
+
+      await auth.login(response.data.access, response.data.refresh, {
+        email: decoded.email,
+        role: 'STUDENT',
+      });
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Login failed unexpectedly.');
     } finally {
       setLoading(false);
     }

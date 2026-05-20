@@ -67,48 +67,63 @@ export default function CashierPaymentsPage() {
       return;
     }
 
-    const enteredAmount = Number(amount) || 0;
+    const enteredAmount = Number(amount);
     const currentBalance = Number(assessment.balance_due);
-    
-    if (enteredAmount <= 0) {
+    const remainingBalance = currentBalance - enteredAmount;
+
+    if (!Number.isFinite(enteredAmount) || enteredAmount <= 0) {
       alert("Please enter a valid payment amount.");
       return;
     }
 
     try {
-      // 1. Generate a mock receipt number (or let backend handle it)
       const receiptNumber = 'REC-' + Math.floor(100000 + Math.random() * 900000);
+      console.log('Posting payment', {
+        studentId: selected.id,
+        assessmentId: assessment.id,
+        enteredAmount,
+        currentBalance,
+        remainingBalance,
+        receiptNumber
+      });
 
-      // 2. POST the actual payment to the database (Triggering your Django save() hook)
       await api.post('payments/', {
         assessment: assessment.id,
         amount_paid: enteredAmount,
-        receipt_number: receiptNumber
+        receipt_number: receiptNumber,
+        payment_method: method
       });
-      
-      // 3. If the payment fully clears the balance, officially update their enrollment status
-      if (enteredAmount >= currentBalance) {
-          await api.patch(`students/${selected.id}/`, { enrollment_status: 'ENROLLED' });
+
+      let statusMessage = `✅ Payment of ₱${enteredAmount.toLocaleString()} posted!\nReceipt: ${receiptNumber}`;
+
+      if (remainingBalance <= 0) {
+        console.log('Balance cleared, updating enrollment status to ENROLLED');
+        await api.patch(`students/${selected.id}/`, { enrollment_status: 'ENROLLED' });
+        statusMessage += `\n\nFully Paid! Student is now ENROLLED.`;
+      } else {
+        console.log('Partial payment recorded, remaining balance remains positive');
+        statusMessage += `\n\nPartial Payment Successful. Remaining Balance: ₱${remainingBalance.toLocaleString()}`;
       }
 
-      let successMessage = `✅ Payment of ₱${enteredAmount.toLocaleString()} posted!\nReceipt: ${receiptNumber}`;
-      if (enteredAmount > currentBalance) {
-        successMessage += `\n\nChange due: ₱${(enteredAmount - currentBalance).toLocaleString()}`;
+      if (remainingBalance < 0) {
+        statusMessage += `\nChange Due: ₱${Math.abs(remainingBalance).toLocaleString()}`;
       }
 
-      alert(successMessage);
-      
-      // Clear queue and refresh DB ledgers
+      alert(statusMessage);
       setSelected(null);
       setAmount('');
-      fetchData(); 
+      fetchData();
     } catch (error) {
-      console.error("Failed to post payment", error);
-      alert("Failed to process payment. Ensure the backend payments API is running.");
+      console.error('Failed to post payment', error);
+      alert('Failed to process payment. Ensure the backend payments API is running.');
     }
   };
 
-  const pendingPayments = students.filter(s => s.enrollment_status === 'ASSESSED');
+  const pendingPayments = students.filter(s => {
+    const assessment = getStudentAssessment(s.id);
+    return assessment ? Number(assessment.balance_due) > 0 : false;
+  });
+
   const filtered = pendingPayments.filter(p =>
     `${p.first_name} ${p.last_name} ${p.email}`.toLowerCase().includes(search.toLowerCase())
   );
@@ -155,7 +170,18 @@ export default function CashierPaymentsPage() {
                     <tr key={p.id} className={`border-t border-gray-100 transition-colors ${selected?.id === p.id ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
                       <td className="px-5 py-3 text-gray-700 font-medium">{p.last_name}, {p.first_name}</td>
                       <td className="px-5 py-3 text-right font-bold text-red-500">
-                        {assessment ? fmt(balance) : 'No Assessment'}
+                        {assessment ? (
+                          <div className="space-y-1">
+                            <div>{fmt(balance)}</div>
+                            <div className="text-[10px] uppercase tracking-wide font-semibold text-gray-500">
+                              {Number(assessment.balance_due) < Number(assessment.total_amount)
+                                ? 'Partial Balance'
+                                : 'Full Tuition'}
+                            </div>
+                          </div>
+                        ) : (
+                          'No Assessment'
+                        )}
                       </td>
                       <td className="px-5 py-3 text-center">
                         <button

@@ -63,7 +63,7 @@ interface DashboardSubject {
 }
 
 export default function StudentDashboardScreen() {
-  const { user } = useContext(AuthContext) || {};
+  const { user, loading: authLoading } = useContext(AuthContext) || { loading: true };
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -78,10 +78,11 @@ export default function StudentDashboardScreen() {
   const [activeDaysCount, setActiveDaysCount] = useState(0);
 
   useEffect(() => {
-    if (user?.email) {
+    // Only fetch when auth state is settled and we have a user
+    if (!authLoading && user?.email) {
       fetchDashboardData();
     }
-  }, [user]);
+  }, [authLoading, user]);
 
   const fetchDashboardData = async () => {
     try {

@@ -8,6 +8,8 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 # Import your finance views
 from finance.views import AssessmentViewSet, PaymentViewSet
+# Import accounts views
+from accounts.views import ChangePasswordView
 
 # Rebrand the Django Admin interface to EduTrack
 admin.site.site_header = "EduTrack Admin Portal"
@@ -64,6 +66,9 @@ urlpatterns = [
     # 6. Point the login route to your Custom view!
     path('api/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    
+    # Account management endpoints
+    path('api/change-password/', ChangePasswordView.as_view(), name='change_password'),
     
     path('api/', include(router.urls)),
     
