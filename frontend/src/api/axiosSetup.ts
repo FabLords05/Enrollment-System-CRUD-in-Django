@@ -1,8 +1,9 @@
 import axios from 'axios';
 
-// 1. Updated baseURL to your computer's IP
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/';
+
 const api = axios.create({
-    baseURL: 'http://localhost:8000/api/', 
+    baseURL: API_URL,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -32,8 +33,7 @@ api.interceptors.response.use(
             
             if (refreshToken) {
                 try {
-                    // 2. Updated the token refresh URL to your computer's IP
-                    const response = await axios.post('http://localhost:8000/api/token/refresh/', {
+                    const response = await axios.post(`${API_URL}token/refresh/`, {
                         refresh: refreshToken
                     });
                     localStorage.setItem('access_token', response.data.access);

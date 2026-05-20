@@ -2,7 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Reads from .env EXPO_PUBLIC_API_URL (change this when switching Wi-Fi networks)
-export const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.68.132:8000/api/';
+export const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000/api/';
 
 const api = axios.create({
   baseURL: BASE_URL,
